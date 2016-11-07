@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
 #define MAXLINE 4096
 void sig_handler(int signo);
 void sig_handler2(int signo);
@@ -19,6 +20,7 @@ void sig_handler2(int signo);
 #define CYN "\x1B[36m"
 #define WHT "\x1B[37m"
 
+void clearArray(char * array[]);
 pid_t pid;
 
 //sudo code --user-data-dir="~/.vscode-root"
@@ -45,10 +47,11 @@ int main(void)
     {
         perror("Error killing the process\n");
     }
-
+    int semicolonruns;
     //bgin commandLine Parsing
     while (fgets(buffer, MAXLINE, stdin) && strcmp(buffer, "exit\n") != 0)
     {
+
         char *string = strtok(buffer, " ");
         char *valueArray[10];
         int i = 0;
@@ -57,7 +60,6 @@ int main(void)
             valueArray[i++] = string;
             string = strtok(NULL, " ");
         }
-
         int length = i;
         if ((pid = fork()) < 0)
         {
@@ -68,7 +70,6 @@ int main(void)
             buffer[strlen(buffer) - 1] = 0; //Create a null terminator
             if ((execlp(buffer, buffer, (char *)0)) < 0)
             {
-                //fprintf(stdout, "Command not found: %s \n", buffer);
                 fprintf(stdout, "%s\n", strerror(errno));
             }
             exit(1);
@@ -84,21 +85,56 @@ int main(void)
                     strcmp(valueArray[j], "&") == 0 || strcmp(valueArray[j], ";") == 0)
                 {
                     basecase = 0;
-                    break;
                 }
             }
+
             if (basecase == 1) //The case that we do not have any REGEX chars
             {
                 char *program_name = valueArray[0];
                 int x;
-                for (x = 0; x < strlen(valueArray[length - 1]); x++)
+                int y;
+                for(x = 0; x < length; x++)
                 {
-                    if (valueArray[length - 1][x] == '\n')
+                    for(y = 0; y < strlen(valueArray[x]); y++)
                     {
-                        valueArray[length - 1][x] = '\0';
+                        if(valueArray[x][y] == '\n')
+                        {
+                            valueArray[x][y] = '\0';
+                        }
                     }
                 }
-                execvp(program_name, valueArray);
+                char * temp[length];
+                if(semicolonruns)
+                {
+                    int y;
+                    for(y = 0; y < length; y++)
+                    {
+                        temp[y] = valueArray[y];
+                        //fprintf(stdout, "temp is: %s\n", temp[y]);
+                    }
+                }
+                pid_t child;
+                if((child = fork()) < 0)
+                {
+                    perror("fork error");
+                }
+                if(child == 0 && semicolonruns == 0)
+                {
+                    //fprintf(stdout, "regular exec\n");
+                    execvp(program_name, valueArray);
+                    exit(1);
+                }
+                else if(child == 0 && semicolonruns)      //The error lies here
+                {
+                    temp[length] = (char * ) NULL;
+                    execvp(temp[0], temp);
+                    exit(1);
+                }
+                else
+                {
+                    int statflag;
+                    child = waitpid(child, &statflag, 0);
+                }
             }
             else
             {
@@ -111,12 +147,17 @@ int main(void)
                 //     PIPE
                 //     &
                 int x;
-                for (x = 0; x < strlen(valueArray[length - 1]); x++)
+                int y;
+                for(x = 0; x < length; x++)
                 {
-                    if (valueArray[length - 1][x] == '\n')
+                    for(y = 0; y < strlen(valueArray[x]); y++)
                     {
-                        valueArray[length - 1][x] = '\0';
+                        if(valueArray[x][y] == '\n')
+                        {
+                            valueArray[x][y] = '\0';
+                        }
                     }
+
                 }
                 int indexer = 0;
                 int semicolon_counter = 0;
@@ -124,6 +165,7 @@ int main(void)
                 {
                     if (strcmp(valueArray[indexer], ";") == 0)
                     {
+                        semicolonruns++;
                         semicolon_counter++;
                         pid_t child;
                         if ((child = fork()) < 0)
@@ -135,7 +177,7 @@ int main(void)
                             execlp(valueArray[indexer - 1], valueArray[indexer - 1], (char *)NULL);
                             exit(1);
                         }
-                        else if(child > 0)
+                        else if(child > 0 && semicolon_counter < 2)
                         {
                             int statflag;
                             if ((child = waitpid(child, &statflag, 0)) < 0)
@@ -158,17 +200,67 @@ int main(void)
                             }
                       
                         }
+                        int statflag;
+                        child = waitpid(child, &statflag, 0);
                         continue;
                     }
                 }
-            }
+                
 
-            exit(1);
+/*
+
+
+
+This is the end of the cases for non-argument colon cancer
+
+
+
+*/
+                indexer = 0;
+                for (indexer; indexer < length; indexer++)
+                {
+                    if (strcmp(valueArray[indexer], ">") == 0)
+                    {
+                        semicolonruns = 1;
+                        pid_t child;
+                        if((child = fork()) < 0)
+                        {
+                            perror("Forking Error");
+                        }
+                        if(child == 0)
+                        {
+                            int fd = 0;
+                            fd = open(valueArray[indexer + 1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+                            dup2(fd, 1);
+                            execlp(valueArray[indexer -1], valueArray[indexer -1], (char *) NULL);
+                            exit(1);
+                        }
+                        int statflag;
+                        child = waitpid(child, &statflag, 0);        
+                    }
+                }
+
+
+
+
+
+
+
+            }
+            if(semicolonruns)
+            {
+                exit(1);
+            }
+            else
+            {
+                exit(0);
+            }
         }
         if ((pid = waitpid(pid, &status, 0)) < 0)
         {
             strerror(errno);
         }
+        semicolonruns = status;
         fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
     }
     printf("Thank you for using the shell!\n");
@@ -192,5 +284,15 @@ void sig_handler2(int signo)
         printf("\nThank you for using the shell\n");
         printf("HAVE A SHITTY DAY\n");
         exit(0);
+    }
+}
+
+void clearArray(char* array[])
+{
+    int i = 0;
+    while(array[i] != NULL)
+    {
+        fprintf(stdout, "The value is in the index: %d is : %s\n", i, array[i]);
+        i++;
     }
 }
