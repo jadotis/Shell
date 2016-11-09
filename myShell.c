@@ -8,6 +8,9 @@
 #include <errno.h>
 #include <string.h>
 #include <fcntl.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+
 #define MAXLINE 4096
 void sig_handler(int signo);
 void sig_handler2(int signo);
@@ -20,7 +23,10 @@ void sig_handler2(int signo);
 #define CYN "\x1B[36m"
 #define WHT "\x1B[37m"
 
-void clearArray(char * array[]);
+//FUNCTION DEFINITIONS:
+void clearArray(char *array[]);
+void doRest(char *tokens[], int length);
+
 pid_t pid;
 
 //sudo code --user-data-dir="~/.vscode-root"
@@ -31,12 +37,11 @@ void clear()
 
 int main(void)
 {
-    char buffer[MAXLINE];
+    char *buffer = ""; //Potentially malloc
     int status;
     clear();
     fprintf(stdout, "Welcome to the MyShell Process\n");
     fprintf(stdout, "Enter exit to quit!\n");
-    fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
 
     if (signal(SIGINT, sig_handler) == SIG_ERR)
     {
@@ -45,229 +50,314 @@ int main(void)
     }
     if (signal(SIGTSTP, sig_handler2) == SIG_ERR)
     {
-        perror("Error killing the process\n");
+        perror("Error killing the process");
     }
-    int semicolonruns;
     //bgin commandLine Parsing
-    while (fgets(buffer, MAXLINE, stdin) && strcmp(buffer, "exit\n") != 0)
+    while (strcmp(buffer, "exit") != 0)
     {
-
+        buffer = (char*) NULL;
+        fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
+        buffer = readline("");
+        if (strcmp(buffer, "exit") == 0)
+        {
+            fprintf(stdout, "WELL GO FUCK YOURSELF\n");
+            break;
+        }
         char *string = strtok(buffer, " ");
-        char *valueArray[10];
+        char *tokens[20];
         int i = 0;
         while (string != NULL)
         {
-            valueArray[i++] = string;
+            tokens[i++] = string;
             string = strtok(NULL, " ");
         }
-        int length = i;
+        doRest(tokens, i);
+    }
+}
+
+void doRest(char *tokens[], int length)
+{
+    int basecase = 1;
+    if (length == 1)
+    {
         if ((pid = fork()) < 0)
         {
-            perror("ERROR in the FORK\n");
+            perror("Fork Error");
         }
-        else if (pid == 0 && length == 1) //case of single command
+        else if (pid == 0)
         {
-            buffer[strlen(buffer) - 1] = 0; //Create a null terminator
-            if ((execlp(buffer, buffer, (char *)0)) < 0)
+            if ((execlp(tokens[0], tokens[0], (char *)NULL)) < 0)
             {
-                fprintf(stdout, "%s\n", strerror(errno));
+                perror("EXEC ERROR FOR BASECASE");
             }
             exit(1);
         }
-        else if (pid == 0 && length != 1)
+        else
         {
-            int basecase = 1;
-            int j = 0;
-            for (j; j < length; j++)
+            int statflag;
+            if ((pid = waitpid(pid, &statflag, 0)) < 0)
             {
-                if (strcmp(valueArray[j], "|") == 0 || strcmp(valueArray[j], ">") == 0 || strcmp(valueArray[j], "<") == 0 ||
-                    strcmp(valueArray[j], "1>") == 0 || strcmp(valueArray[j], "2>") == 0 || strcmp(valueArray[j], "&>") == 0 ||
-                    strcmp(valueArray[j], "&") == 0 || strcmp(valueArray[j], ";") == 0)
-                {
-                    basecase = 0;
-                }
+                perror("Could not wait on the pid child");
             }
-
-            if (basecase == 1) //The case that we do not have any REGEX chars
-            {
-                char *program_name = valueArray[0];
-                int x;
-                int y;
-                for(x = 0; x < length; x++)
-                {
-                    for(y = 0; y < strlen(valueArray[x]); y++)
-                    {
-                        if(valueArray[x][y] == '\n')
-                        {
-                            valueArray[x][y] = '\0';
-                        }
-                    }
-                }
-                char * temp[length];
-                if(semicolonruns)
-                {
-                    int y;
-                    for(y = 0; y < length; y++)
-                    {
-                        temp[y] = valueArray[y];
-                        //fprintf(stdout, "temp is: %s\n", temp[y]);
-                    }
-                }
-                pid_t child;
-                if((child = fork()) < 0)
-                {
-                    perror("fork error");
-                }
-                if(child == 0 && semicolonruns == 0)
-                {
-                    //fprintf(stdout, "regular exec\n");
-                    execvp(program_name, valueArray);
-                    exit(1);
-                }
-                else if(child == 0 && semicolonruns)      //The error lies here
-                {
-                    temp[length] = (char * ) NULL;
-                    execvp(temp[0], temp);
-                    exit(1);
-                }
-                else
-                {
-                    int statflag;
-                    child = waitpid(child, &statflag, 0);
-                }
-            }
-            else
-            {
-                //Cases are ;
-                //     >
-                //     <
-                //     1>
-                //     2>
-                //     &>
-                //     PIPE
-                //     &
-                int x;
-                int y;
-                for(x = 0; x < length; x++)
-                {
-                    for(y = 0; y < strlen(valueArray[x]); y++)
-                    {
-                        if(valueArray[x][y] == '\n')
-                        {
-                            valueArray[x][y] = '\0';
-                        }
-                    }
-
-                }
-                int indexer = 0;
-                int semicolon_counter = 0;
-                for (indexer; indexer < length; indexer++)
-                {
-                    if (strcmp(valueArray[indexer], ";") == 0)
-                    {
-                        semicolonruns++;
-                        semicolon_counter++;
-                        pid_t child;
-                        if ((child = fork()) < 0)
-                        {
-                            perror("Execution Error");
-                        }
-                        if (child == 0)
-                        {
-                            execlp(valueArray[indexer - 1], valueArray[indexer - 1], (char *)NULL);
-                            exit(1);
-                        }
-                        else if(child > 0 && semicolon_counter < 2)
-                        {
-                            int statflag;
-                            if ((child = waitpid(child, &statflag, 0)) < 0)
-                            {
-                            perror("Error waiting on the child\n");
-                            }
-                            pid_t child2;
-                            if((child2 = fork()) < 0)
-                            {
-                                perror("Forking Error");
-                            }
-                            if(child2 == 0 && semicolon_counter == 1)
-                            {
-                                execlp(valueArray[indexer + 1], valueArray[indexer + 1], (char *)NULL);
-                                exit(1);
-                            }
-                            else
-                            {
-                                child2 = waitpid(child2, &statflag, 0);
-                            }
-                      
-                        }
-                        int statflag;
-                        child = waitpid(child, &statflag, 0);
-                        continue;
-                    }
-                }
-                
-
-/*
-
-
-
-This is the end of the cases for non-argument colon cancer
-
-
-
+        }
+    }
+    /*
+    FOR A NORMAL COMMAND without basecase.
 */
-                indexer = 0;
-                for (indexer; indexer < length; indexer++)
-                {
-                    if (strcmp(valueArray[indexer], ">") == 0)
-                    {
-                        semicolonruns = 1;
-                        pid_t child;
-                        if((child = fork()) < 0)
-                        {
-                            perror("Forking Error");
-                        }
-                        if(child == 0)
-                        {
-                            int fd = 0;
-                            fd = open(valueArray[indexer + 1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                            dup2(fd, 1);
-                            execlp(valueArray[indexer -1], valueArray[indexer -1], (char *) NULL);
-                            exit(1);
-                        }
-                        int statflag;
-                        child = waitpid(child, &statflag, 0);        
-                    }
-                }
-
-
-
-
-
-
-
-            }
-            if(semicolonruns)
+    else if (length > 1)
+    {
+        int j = 0;
+        for (j; j < length; j++)
+        {
+            if (strcmp(tokens[j], "|") == 0 || strcmp(tokens[j], ">") == 0 || strcmp(tokens[j], "<") == 0 ||
+                strcmp(tokens[j], "1>") == 0 || strcmp(tokens[j], "2>") == 0 || strcmp(tokens[j], "&>") == 0 ||
+                strcmp(tokens[j], "&") == 0 || strcmp(tokens[j], ";") == 0)
             {
+                basecase = 0;
+            }
+        }
+        //This is a single command with Arguments
+        if (basecase == 1)
+        {
+            tokens[length] = (char *)NULL;
+            pid_t child;
+            if ((child = fork()) < 0)
+            {
+                perror("fork error in the basecase");
+            }
+            else if (child == 0)
+            {
+                if ((execvp(tokens[0], tokens)) < 0)
+                {
+                    perror("");
+                }
                 exit(1);
             }
             else
             {
-                exit(0);
+                int statflag;
+                if ((child = waitpid(child, &statflag, 0)) < 0)
+                {
+                    perror("Error waiting on the child in the basecase");
+                }
             }
         }
-        if ((pid = waitpid(pid, &status, 0)) < 0)
+        //end basecase
+
+        //Start the regular expressions.
+        else
         {
-            strerror(errno);
+
+            int argPtr;
+            int semicolon_counter = 0;
+            for (argPtr = 0; argPtr < length; argPtr++)
+            {
+                if (strcmp(tokens[argPtr], ";") == 0)
+                {
+                    semicolon_counter++;
+                    pid_t child2;
+
+                    if ((child2 = fork()) < 0)
+                    {
+                        perror("Fork error in Child2");
+                    }
+                    if (child2 == 0 && semicolon_counter < 2) // in the child
+                    {
+                        int argsBefore = 0;
+                        int n = argPtr - 1;
+                        while (n > -1 && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+                               strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
+                               strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+                        {
+                            argsBefore++;
+                            n--;
+                        }
+                        //Counts the number of arguments before
+
+                        if (argsBefore == 1) //Case that we only have a single cmd and no arguments.
+                        {
+                            if ((execlp(tokens[argPtr - 1], tokens[argPtr - 1], (char *)NULL)) < 0)
+                            {
+                                perror("Exex error in the single cmd \n");
+                            }
+                            exit(1);
+                        }
+                        else // The case of the fact that we have a cmd with arguments.
+                        {
+                            char *argv[argsBefore + 1];
+                            for (n = 0; n <= argsBefore; n++)
+                            {
+                                argv[n] = tokens[argPtr - argsBefore--];
+                            }
+                            argv[n] = (char *)NULL;
+                            if ((execvp(argv[0], argv)) < 0)
+                            {
+                                perror("Error in multiple argument exec");
+                            }
+                            exit(1);
+                        }
+                    }
+                    else if(child2 == 0)
+                    {
+                        exit(1);
+                    }
+                    //What to do if we have more than one semicolon
+                    else if (child2 > 0)
+                    {
+                        if (semicolon_counter)
+                        {
+                            int statflag;
+                            if ((child2 = waitpid(child2, &statflag, 0)) < 0)
+                            {
+                                perror("Could not wait for the child in the parent");
+                            }
+                        }
+                        pid_t child3;
+                        if ((child3 = fork()) < 0)
+                        {
+                            perror("Forking error in the third child\n");
+                        }
+                        if (child3 == 0)
+                        {
+                            int argsAfter = 0;
+                            int n = argPtr + 1;
+                            while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+                                   strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
+                                   strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+                            {
+                                argsAfter++;
+                                n++;
+                            }
+                            fflush(stdout);
+                            if (argsAfter == 1)
+                            {
+                                if ((execlp(tokens[argPtr + 1], tokens[argPtr + 1], (char *)NULL)) < 0)
+                                {
+                                    perror("Error Execing the Second SingleArg\n");
+                                }
+                                fflush(stdout);
+                                exit(10);
+                            }
+                            if (argsAfter > 1)
+                            {
+                                char *argv[argsAfter + 1];
+                                for (n = 0; n < argsAfter; n++)
+                                {
+                                    argv[n] = tokens[argPtr + n + 1];
+                                }
+                                argv[n] = (char *)NULL; //We Should Check this out.
+                                if ((execvp(argv[0], argv)) < 0)
+                                {
+                                    perror("We had an exec error in the multiarg cse\n");
+                                }
+                                exit(0);
+                            }
+                        }
+                        else if (child3 != 0)
+                        {
+                            int statflag;
+                            if ((child3 = waitpid(child3, &statflag, 0)) < 0)
+                            {
+                                perror("We had an error waiting on the third child\n");
+                            }
+                        }
+                        //NOW WE ARE BACK IN THE PARENT
+
+                    }
+
+                } //End the semicolon case
+                if (strcmp(tokens[argPtr], ">") == 0){
+                    pid_t child;
+                    if((child = fork()) < 0)
+                    {
+                        perror("Could not fork for redirection char\n");
+                    }
+                    if(child == 0)
+                    {
+                        int fd = 0;
+                        fd = open(tokens[argPtr + 1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+                        dup2(fd,1);
+
+                        int argsBefore = 0;
+                        int n = argPtr - 1;
+
+                        while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+                                strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
+                                strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+                            {
+                                argsBefore++;
+                                n--;
+                            }
+
+                        if (argsBefore == 1)
+                        {
+                            if((execlp(tokens[argPtr - 1], tokens[argPtr - 1], (char * )NULL)) < 0)
+                            {
+                                perror("EXEC ERROR");
+                            }
+                            exit(1);
+                        }
+
+                        else
+                        {
+                            char *argv[argsBefore+1];
+                            for (n=0; n <= argsBefore; n++)
+                            {
+                                argv[n] = tokens[argPtr - argsBefore];
+                                argsBefore--;
+                            }
+                            argv[n] = (char*) NULL;
+                            if((execvp(argv[0], argv)) < 0)
+                            {
+                                perror("EXECVP ERROR IN < CASE");
+                            }
+                            exit(1);
+                        }
+                    }
+                    else
+                    {
+                        int statflag;
+                        if((child = waitpid(child, &statflag, 0)) < 0)
+                        {
+                            perror("error waiting on the child\n");
+                        }
+                    }
+
+
+
+                }//END the direction case;
+            }
+            
+
+
+
+
+
         }
-        semicolonruns = status;
-        fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
+
+        //End the case of anything but single arg.
     }
-    printf("Thank you for using the shell!\n");
-    exit(1);
+
+    //End the do Rest();
+    else if (length > 1)
+    {
+        int statflag;
+        if ((pid = waitpid(pid, &statflag, 0)) < 0)
+        {
+            perror("ERROR WAITING ON THE MAIN PROCESS\n");
+        }
+    }
 }
 
-//Signal Handlers
+/*
+
+
+    THIS IS THE LINE DO NOT CROSS IT
+
+
+
+*/
+
 void sig_handler(int signo)
 {
     if (signo == SIGINT && pid == 0)
@@ -284,15 +374,5 @@ void sig_handler2(int signo)
         printf("\nThank you for using the shell\n");
         printf("HAVE A SHITTY DAY\n");
         exit(0);
-    }
-}
-
-void clearArray(char* array[])
-{
-    int i = 0;
-    while(array[i] != NULL)
-    {
-        fprintf(stdout, "The value is in the index: %d is : %s\n", i, array[i]);
-        i++;
     }
 }
