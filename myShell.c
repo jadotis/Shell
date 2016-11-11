@@ -80,10 +80,16 @@ void doRest(char *tokens[], int length)
     int basecase = 1;
     if (length == 1)
     {
+      if (strcmp(tokens[0], "cd") == 0)
+	{
+	  return;
+	}
+      
         if ((pid = fork()) < 0)
         {
             perror("Fork Error");
         }
+	
         else if (pid == 0)
         {
             if ((execlp(tokens[0], tokens[0], (char *)NULL)) < 0)
@@ -121,6 +127,51 @@ void doRest(char *tokens[], int length)
         {
             tokens[length] = (char *)NULL;
             pid_t child;
+
+	    if (strcmp(tokens[0], "cd") == 0)//BEGIN "cd" case
+	      {
+		char * buffer = (char*) malloc(100);
+		buffer = getcwd(buffer, 100);
+
+		char *newEnv = buffer;
+		
+		int n = strlen(buffer)-1;
+
+		if (strcmp(tokens[1], "..") == 0)
+		  {
+		    while (newEnv[n] != '/')
+		      {
+			newEnv[n] = '\0';
+			n--;
+		      }
+		  }
+
+		if (tokens[1][0] == '/')
+		  {
+		    newEnv = tokens[1];
+		  }
+
+
+		if(tokens[1][0] == '.' && tokens[1][1] == '/')
+		  {
+		    int i = 2;
+		    char * partial = tokens[1]+1;
+
+		    strcat(newEnv, partial);
+		  }
+		
+		if((setenv("PWD", newEnv, 1)) < 0)
+		  {
+		    perror("");
+		  }
+
+		if((chdir(newEnv)) < 0)
+		  {
+		    perror("");
+		  }
+		return;
+	      }//END "cd" case
+	    
             if ((child = fork()) < 0)
             {
                 perror("fork error in the basecase");
@@ -129,7 +180,7 @@ void doRest(char *tokens[], int length)
             {
                 if ((execvp(tokens[0], tokens)) < 0)
                 {
-                    perror("");
+		  perror("");
                 }
                 exit(1);
             }
@@ -152,6 +203,15 @@ void doRest(char *tokens[], int length)
             int semicolon_counter = 0;
             for (argPtr = 0; argPtr < length; argPtr++)
             {
+	      if (strcmp(tokens[argPtr], "cd") == 0) //BEGIN "cd" case
+		{
+		  fprintf(stdout, "HIT IT\n");
+		  char *value = getenv("PATH");
+		  fprintf(stdout, "Path: %s", value);
+		  fflush(stdout);
+		}//END "cd" case
+	      
+	      
                 if (strcmp(tokens[argPtr], ";") == 0)
                 {
                     semicolon_counter++;
@@ -266,7 +326,7 @@ void doRest(char *tokens[], int length)
                     }
 
                 } //End the semicolon case
-                if (strcmp(tokens[argPtr], ">") == 0){
+                if (strcmp(tokens[argPtr], ">") == 0 || strcmp(tokens[argPtr], "1>") == 0){
                     pid_t child;
                     if((child = fork()) < 0)
                     {
@@ -285,7 +345,7 @@ void doRest(char *tokens[], int length)
                                 strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
                                 strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
                             {
-                                argsBefore++;
+			      argsBefore++;
                                 n--;
                             }
 
@@ -326,9 +386,198 @@ void doRest(char *tokens[], int length)
 
 
                 }//END the direction case;
-            }
-            
 
+		// BEGIN "<" direction case;
+		if (strcmp(tokens[argPtr], "<") == 0)
+		  {
+		    pid_t child;
+		    if ((child = fork()) < 0)
+		      {	 	
+			perror("FORKING ERROR in '<' case");
+		      }
+
+		    else if (child == 0)
+		      {
+			int fd = 0;
+			fd = open(tokens[argPtr + 1], O_RDONLY, S_IRUSR | S_IWUSR);
+			dup2(fd, 0);
+
+			int argsBefore = 0;
+			int n = argPtr-1;
+
+			 while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+                                strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
+                                strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+			   {
+			     argsBefore++;
+			     n--;
+			   }
+
+			 if (argsBefore == 1)
+			   {
+			     if ((execlp(tokens[argPtr-1], tokens[argPtr-1], (char*)NULL)) < 0)
+			       {
+				 perror("EXEC ERROR with single command in '<' case");
+			       }
+			     
+			     exit(1);
+			   }
+
+			 else
+			   {
+			     char *argv[argsBefore+1];
+			     for (n=0; n <= argsBefore; n++)
+			       {
+				 argv[n] = tokens[argPtr - argsBefore];
+				 argsBefore--;
+			       }
+			     argv[n] = (char*) NULL;
+			     if((execvp(argv[0], argv)) < 0)
+			       {
+				 perror("EXECVP ERROR IN < CASE");
+			       }
+			     exit(1);
+			   }
+		      }
+
+
+		    else
+		      {
+			int statflag;
+			if((child = waitpid(child, &statflag, 0)) < 0)
+			  {
+			    perror("ERROR waiting on child in '<' case");
+			  }
+		      }
+		    
+		  }//END "<" direction case;
+
+		if (strcmp(tokens[argPtr], "2>") == 0) //BEGIN "2>" direction case
+		  {
+		    pid_t child;
+		    if ((child = fork()) < 0)
+		      {
+			perror("FORK ERROR in '2>' case");
+		      }
+
+		    else if (child == 0)
+		      {
+			int fd = 0;
+			fd = open(tokens[argPtr + 1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+			dup2(fd, STDERR_FILENO);
+			
+			int argsBefore = 0;
+			int n = argPtr-1;
+
+			while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+			       strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
+			       strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+			  {
+			    argsBefore++;
+			    n--;
+			  }
+			
+			if (argsBefore == 1)
+			  {
+			    if ((execlp(tokens[argPtr-1], tokens[argPtr-1], (char*)NULL)) < 0)
+			      {
+				perror("EXEC ERROR with single command in '2>' case");
+			      }
+			    
+			    exit(1);
+			  }
+			
+			else
+			  {
+			    char *argv[argsBefore+1];
+			    for (n=0; n <= argsBefore; n++)
+			      {
+				argv[n] = tokens[argPtr - argsBefore];
+				argsBefore--;
+			      }
+			    argv[n] = (char*) NULL;
+			    if((execvp(argv[0], argv)) < 0)
+			      {
+				perror("EXECVP ERROR IN < CASE");
+			      }
+			    exit(1);
+			    
+			  }
+		      }
+		    else
+		      {
+			int statflag;
+			if ((child = waitpid(child, &statflag, 0)) < 0)
+			  {
+			    perror("ERROR waiting on child in '2>' case");
+			  }
+		      }
+		    
+		  }//END "2>" direction case
+
+		if(strcmp(tokens[argPtr], "&") == 0) //BEGIN "&" case
+		  {
+		    pid_t child;
+		    if ((child = fork()) < 0)
+		      {
+			perror("FORK ERROR in '&' case");
+		      }
+
+		    else if (child == 0)
+		      {
+			int argsBefore = 0;
+			int n = argPtr-1;
+
+			while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+			       strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
+			       strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+			  {
+			    argsBefore++;
+			    n--;
+			  }
+			
+			if (argsBefore == 1)
+			  {
+			    sleep(2);
+			    if ((execlp(tokens[argPtr-1], tokens[argPtr-1], (char*)NULL)) < 0)
+			      {
+				perror("EXEC ERROR with single command in '2>' case");
+			      }
+			    
+			    exit(1);
+			  }
+			
+			else
+			  {
+			    char *argv[argsBefore+1];
+			    for (n=0; n <= argsBefore; n++)
+			      {
+				argv[n] = tokens[argPtr - argsBefore];
+				argsBefore--;
+			      }
+			    argv[n] = (char*) NULL;
+			    sleep(2);
+			    if((execvp(argv[0], argv)) < 0)
+			      {
+				perror("EXECVP ERROR IN < CASE");
+			      }
+			    exit(1);
+			  }
+			
+		      }
+
+		    else
+		      {
+			fprintf(stdout, "Executing process number [%d].\n", child);
+			fflush(stdout);
+			sleep(3);
+		      }
+		    
+		    
+		  }//END "&" case
+	    }
+            
+	    
 
 
 
