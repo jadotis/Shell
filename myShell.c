@@ -12,6 +12,7 @@
 #include <readline/history.h>
 
 #define MAXLINE 4096
+#define MAXPIPES 10
 void sig_handler(int signo);
 void sig_handler2(int signo);
 
@@ -26,8 +27,11 @@ void sig_handler2(int signo);
 //FUNCTION DEFINITIONS:
 void clearArray(char *array[]);
 void doRest(char *tokens[], int length);
-
+void pipeCreator(char *tokens[], int length);
+int pipes[MAXPIPES][2];
 pid_t pid;
+int pipeflag; 
+
 
 //sudo code --user-data-dir="~/.vscode-root"
 void clear()
@@ -71,7 +75,15 @@ int main(void)
             tokens[i++] = string;
             string = strtok(NULL, " ");
         }
-        doRest(tokens, i);
+        pipeCreator(tokens, i);
+        if(pipeflag == 0)
+        {
+            doRest(tokens, i);
+        }
+        else
+        {
+            //handle the pipes.
+        }
     }
 }
 
@@ -606,6 +618,33 @@ void doRest(char *tokens[], int length)
 
 
 */
+
+//Makes the filedescriptor array for the global variable
+void pipeCreator(char *tokens[], int length)
+{
+    int numPipes = 0;
+    int i = 0;
+    for(i; i < length ; i++)
+    {
+        if(tokens[i][0] == '|')
+        {
+            numPipes++;
+        }
+    }
+    for (i = 0; i < numPipes; i++)
+    {
+        if ((pipe(pipes[i])) < 0)
+        {
+            perror("PIPE CREATION ERROR");
+        }
+    }
+    pipeflag = numPipes;
+}
+
+
+
+
+
 
 void sig_handler(int signo)
 {
