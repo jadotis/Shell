@@ -4,26 +4,51 @@
 #include <unistd.h>
 
 
-// when testing use $cat matrices | ./matmult_p
+#define MAXLINE 200
+#define MAX_TOKS 20
+#define MAX_ROWS 20
+#define MAX_COLS 20
 
-int main(){
-  int i;
-  char stringtok[50]; 
-  //First read in the two matricies
-  fprintf(stdout,"User Input:\n\n");
-  char string[100];
-  while(fgets(string, 100, stdin)){
-    if(strcmp(string, "")==0){
-      fprintf(stdout,"You gave no Standard Input, try again.\n");
-      exit(1);
-    }
-    else{
-      printf("%s\n", string);
-      //from here should tokenize string based on \n characters 
-      }
-    }
-    // Start process of forking m*p times and writing result to parent
 
-    
-  return 0;
+int main(int argc, char *argv[])
+{
+  int matrixA[MAX_ROWS][MAX_COLS];
+  int matrixB[MAX_ROWS][MAX_COLS];
+
+  int j = 0;
+  int i = 0;
+  int temp;
+  
+  char* line = (char*)malloc(MAXLINE);
+  char* string;
+
+  
+  
+  while((fgets(line, MAXLINE, stdin)) && line[0] != '\n')
+    {
+      fprintf(stdout, "The line is: %s", line);
+      string = strtok(line, " ");
+      fprintf(stdout, "We make it here.\n");
+      fflush(stdout);
+      fprintf(stdout, "String: %s\n", string);
+      fflush(stdout);
+      
+      matrixA[i][0] = atoi(string);
+
+      while(string != NULL)
+	{
+	  //fprintf(stdout, "SECOND TEST\n");
+	  string = strtok(NULL, " ");
+	  //fprintf(stdout, "THIRD TEST\n");
+	  //fflush(stdout);
+	  matrixA[i][j++] = atoi(string);
+	  fprintf(stdout, "%d ", matrixA[i][j]);
+	  fflush(stdout);
+	}
+      fprintf(stdout, "\n");
+      i++;
+      j = 0;
+    }
+
 }
+
