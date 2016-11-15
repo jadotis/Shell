@@ -7,6 +7,8 @@
 #include <readline/history.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/wait.h>
+#include <sys/types.h>
 
 
 
@@ -17,6 +19,14 @@
 #define MAX_CHILDREN 20
 int firstArrayKey;
 int secondArrayKey;
+typedef struct {
+  int numrows;
+  int numcolumns;
+  int rowvals[MAX_ROWS];
+  int colvals[MAX_COLS];
+
+}matrix;
+
 
 int main(int argc, char *argv[])
 {
@@ -97,7 +107,7 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  int sharedMemory = shmget(IPC_PRIVATE, MatArow*MatBrow*4, IPC_CREAT | S_IRUSR | S_IWUSR);
+  int sharedMemory = shmget(IPC_PRIVATE, MatArow*MatBcol*4, IPC_CREAT | S_IRUSR | S_IWUSR);
   int *result = (int*)shmat(sharedMemory, NULL, 0); // points to the place where the processes will write their results
   //Initialize shared memory.
   int memkeys[3];
@@ -123,13 +133,33 @@ int main(int argc, char *argv[])
       if(pid == 0)
       {
         pids[children++] = getpid(); //store the process ID of the child to be waited on.
-        execlp("./multiply",MatrixA[rowSpace], MatrixB[colSpace, result*NumbersProcess++])
+        execlp("./multiply",matrixA[rowSpace], matrixB[colSpace], result+(NumbersProcessed++));
         //We pass in the row of A, Col of B and the return addess of the shared Memory object.
+      }
+      else
+      {
+        continue;
+      }
       }
 
     }
-  }
+  int statflag;
+  int i = 0;
+  for(i; i < children; i++)
+  {
+    if((pids[i] = waitpid(pids[i], &statflag, 0)) < 0)
+    {
+      perror(NULL);
+      fprintf(stderr, "Error waiting on the child: %d\n", pids[i]);
+    }
+    else
+    {
 
+    }
+  }
+//Handle shared Memory;
+//Optional pass to matformatter/
+//shmaddr
 
 
 
