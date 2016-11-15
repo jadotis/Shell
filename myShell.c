@@ -807,7 +807,7 @@ void sig_handler(int signo)
 {
     if (signo == SIGINT && pid == 0)
     {
-        printf("\Damn, this program must've sucked...\n");
+        printf("Damn, this program must've sucked...\n");
         exit(0);
     }
 }
