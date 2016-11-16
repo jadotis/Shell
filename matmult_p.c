@@ -17,7 +17,6 @@
 #define MAX_ROWS 20
 #define MAX_COLS 20
 #define MAX_CHILDREN 20
-
 int firstArrayKey;
 int secondArrayKey;
 typedef struct {
@@ -32,7 +31,8 @@ typedef struct {
 int* getCol(int matrix[MAX_ROWS][MAX_COLS], intpos, int length);
 int* getRow(int matrix[MAX_ROWS][MAX_COLS], int pos, int length);
 void printArray(int * arr, int len);
-int multiply(int * rowA, int * colB, int len)
+int multiply(int * rowA, int * colB, int len);
+
 
 int main(int argc, char *argv[])
 {
@@ -144,9 +144,9 @@ int main(int argc, char *argv[])
 	printArray(tempCol, MatBrow);
 	fprintf(stdout,"Matrix A row: %d", rowSpace);
 	printArray(tempRow, MatAcol);
-	fprintf(stdout, "First two digits in col: %d,%d\n", tempCol[0], tempCol[1]);
-	pids[children++] = getpid(); //store the process ID of the child to be waited on.
-        //execlp("./multiply",matrixA[rowSpace], tempCol, result+(NumbersProcessed++));
+	int Cab = multiply(tempRow, tempCol, MatAcol);
+        pids[children++] = getpid(); //store the process ID of the child to be waited on.
+        //execlp("./multiply",matrixA[rowSpace], matrixB[colSpace], result+(NumbersProcessed++));
         //We pass in the row of A, Col of B and the return addess of the shared Memory object.
       }
       else
@@ -174,9 +174,10 @@ int main(int argc, char *argv[])
 //Optional pass to matformatter/
 //shmaddr
 
+
 }
 
-
+//Helper functions
 int* getCol(int matrix[MAX_ROWS][MAX_COLS], int pos, int length){
   int tempArray[length];
   int i;
