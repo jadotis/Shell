@@ -17,6 +17,7 @@
 #define MAX_ROWS 20
 #define MAX_COLS 20
 #define MAX_CHILDREN 20
+
 int firstArrayKey;
 int secondArrayKey;
 typedef struct {
@@ -27,6 +28,11 @@ typedef struct {
 
 }matrix;
 
+//helper functions below main function
+int* getCol(int matrix[MAX_ROWS][MAX_COLS], intpos, int length);
+int* getRow(int matrix[MAX_ROWS][MAX_COLS], int pos, int length);
+void printArray(int * arr, int len);
+int multiply(int * rowA, int * colB, int len)
 
 int main(int argc, char *argv[])
 {
@@ -132,8 +138,15 @@ int main(int argc, char *argv[])
       }
       if(pid == 0)
       {
-        pids[children++] = getpid(); //store the process ID of the child to be waited on.
-        execlp("./multiply",matrixA[rowSpace], matrixB[colSpace], result+(NumbersProcessed++));
+	int * tempCol = getCol(matrixB, colSpace, MatBrow);
+	int * tempRow = getRow(matrixA, rowSpace, MatAcol);
+	fprintf(stdout,"Matrix B column: %d", colSpace);
+	printArray(tempCol, MatBrow);
+	fprintf(stdout,"Matrix A row: %d", rowSpace);
+	printArray(tempRow, MatAcol);
+	fprintf(stdout, "First two digits in col: %d,%d\n", tempCol[0], tempCol[1]);
+	pids[children++] = getpid(); //store the process ID of the child to be waited on.
+        //execlp("./multiply",matrixA[rowSpace], tempCol, result+(NumbersProcessed++));
         //We pass in the row of A, Col of B and the return addess of the shared Memory object.
       }
       else
@@ -161,8 +174,48 @@ int main(int argc, char *argv[])
 //Optional pass to matformatter/
 //shmaddr
 
+}
 
 
+int* getCol(int matrix[MAX_ROWS][MAX_COLS], int pos, int length){
+  int tempArray[length];
+  int i;
+  for(i = 0; i < length; i++){
+    tempArray[i] = matrix[i][pos];
+    //fprintf(stdout, "%d\n", tempArray[i]); 
+  }
+  return tempArray;
+
+}
+
+int* getRow(int matrix[MAX_ROWS][MAX_COLS], int pos, int length){
+  int tempArray[length];
+  int i; 
+  for(i = 0; i < length; i++){
+    tempArray[i] = matrix[pos][i];
+  }
+  return tempArray;
+    
+
+}
 
 
+void printArray(int * arr, int len){
+  int i;
+  for (i=0;i < len;i++) {
+    printf("%d",arr[i]);
+  }
+  printf("\n");
+}
+
+
+// This is what multiply should do after converting the agument types
+
+int multiply(int * rowA, int * colB, int len){
+  int i;
+  int total = 0; 
+  for(i = 0; i < len; i++){
+    total += rowA[i]*colB[i];
+  }
+  return total;
 }
