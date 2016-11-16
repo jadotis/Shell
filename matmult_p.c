@@ -28,11 +28,10 @@ typedef struct {
 }matrix;
 
 //helper functions below main function
-int* getCol(int matrix[MAX_ROWS][MAX_COLS], intpos, int length);
-int* getRow(int matrix[MAX_ROWS][MAX_COLS], int pos, int length);
 void printArray(int * arr, int len);
+void printMat(int r, int c, int matrix[r][c]);
 int multiply(int * rowA, int * colB, int len);
-
+char * intarraytostring(int *array, int len);
 
 int main(int argc, char *argv[])
 {
@@ -105,6 +104,11 @@ int main(int argc, char *argv[])
   }
   MatBrow = rows+1;
   printf("The matrices at dimensions: %d X %d and %d X %d\n", MatArow, MatAcol,MatBrow,MatBcol);
+  //creat matrix C
+  int matrixC[MatArow][MatBcol];
+  printf("The answer to this multiplication will have dimensions: %d X %d\n", MatArow, MatBcol);
+
+
   //We have now read all the info for the matrices.
   //Error handling for the matrices.
   if(MatAcol != MatBrow)
@@ -138,13 +142,28 @@ int main(int argc, char *argv[])
       }
       if(pid == 0)
       {
-	int * tempCol = getCol(matrixB, colSpace, MatBrow);
-	int * tempRow = getRow(matrixA, rowSpace, MatAcol);
-	fprintf(stdout,"Matrix B column: %d", colSpace);
+	int tempCol[MatBrow];
+	int a;
+	for(a = 0; a < MatBrow; a++){
+	  tempCol[a] = matrixB[a][colSpace]; 
+	}
+	fprintf(stdout,"Matrix B column: %d: ", colSpace);
 	printArray(tempCol, MatBrow);
-	fprintf(stdout,"Matrix A row: %d", rowSpace);
+	printf("%s\n",intarraytostring(tempCol, MatBrow));
+
+	int tempRow[MatAcol];
+	int b; 
+	for(b = 0; b < MatAcol; b++){
+	  tempRow[b] = matrixA[rowSpace][b];
+	}
+	fprintf(stdout,"Matrix A row: %d: ", rowSpace);
 	printArray(tempRow, MatAcol);
+	
+	//all this shit needs to be done with exec passing tempCol and tempRow as arguments not sure how to do this tbh
 	int Cab = multiply(tempRow, tempCol, MatAcol);
+	fprintf(stdout, ". product of A row %d and B col %d = %d\n", rowSpace, colSpace, Cab);
+	// need to write this part to parent
+	matrixC[rowSpace][colSpace] = Cab;
         pids[children++] = getpid(); //store the process ID of the child to be waited on.
         //execlp("./multiply",matrixA[rowSpace], matrixB[colSpace], result+(NumbersProcessed++));
         //We pass in the row of A, Col of B and the return addess of the shared Memory object.
@@ -174,41 +193,42 @@ int main(int argc, char *argv[])
 //Optional pass to matformatter/
 //shmaddr
 
-
+  printMat(MatArow, MatBcol, matrixC);
 }
 
 //Helper functions
-int* getCol(int matrix[MAX_ROWS][MAX_COLS], int pos, int length){
-  int tempArray[length];
-  int i;
-  for(i = 0; i < length; i++){
-    tempArray[i] = matrix[i][pos];
-    //fprintf(stdout, "%d\n", tempArray[i]); 
-  }
-  return tempArray;
-
-}
-
-int* getRow(int matrix[MAX_ROWS][MAX_COLS], int pos, int length){
-  int tempArray[length];
-  int i; 
-  for(i = 0; i < length; i++){
-    tempArray[i] = matrix[pos][i];
-  }
-  return tempArray;
-    
-
-}
 
 
 void printArray(int * arr, int len){
   int i;
   for (i=0;i < len;i++) {
-    printf("%d",arr[i]);
+    printf("%d ",arr[i]);
   }
   printf("\n");
 }
 
+void printMat(int r, int c, int matrix[r][c]){
+    int row, columns;
+    printf("Matrix:\n");
+    for (int row=0; row<r; row++)
+      {
+	for(int columns=0; columns<c; columns++)
+	  printf("%d     ", matrix[row][columns]);
+	printf("\n");
+      }
+    printf("\n");
+  }
+
+//this one is a work in progress
+char * intarraytostring(int *array, int len){
+  int i; 
+  char * string[50]; 
+  for(i = 0; i < len; i++){
+    string[i] = array[i] + '0';
+  }
+  
+  return string;
+}
 
 // This is what multiply should do after converting the agument types
 
@@ -220,3 +240,5 @@ int multiply(int * rowA, int * colB, int len){
   }
   return total;
 }
+
+
