@@ -11,35 +11,64 @@
 #include <sys/types.h>
 
 
-int main(int argc, char *argv[]){
-
-  int sum = 0;
+int main(int argc, char *argv[])
+{
+  long sum = 0;
   // Will read argv[1] and argv[2] as Matrix A and B
-  char * matA; 
-  matA = argv[1];
-  char * matB; 
-  matB = argv[2];
-  // Something weird is going on not sure why I cannot grab argv 1/2
+  char * rowA = argv[1];
+  char * colB = argv[2];
 
+  int length = (int)atoi(argv[3]);
 
+  int * shMem = (int*)argv[4];
+
+  fprintf(stdout, "shMem: %s", argv[4]);
+  fflush(stdout);
+
+  int aToks[3];
+  int bToks[3];
+  
+  //fprintf (stdout, "argv[1]: %s\n", argv[1]);
+  //fprintf(stdout, "%s\n", colB);
+  // Argv[3] will be length of co
+  //fprintf(stdout, "argv[1]: %s\nargv[2]: %s\n", argv[1], argv[2]);
+  //fflush(stdout);
+  char * aString = "";
+  char * bString = "";
   //str tok both
-  char * Atok, Btok;
-  Atok = strtok(matA, " ");
-  Btok = strtok(matB, " ");
 
-  while( (Atok!=NULL) && (Btok !=NULL) ){
-    fprintf(stdout, "%s\t%s\t%d\n", Atok, Btok, sum);
-    sum += atoi(Atok) * atoi(Btok);
-    Atok = strtok(matA, " ");
-    Btok = strtok(matB, " ");
-    fprintf(stdout, "%d\n", sum);
+	      
+  aString = strtok(rowA, " ");
+  aToks[0] = (int)atoi(aString);
+
+  int i;
+  for (i = 1; i < length; i++)
+    {
+      aString = strtok(NULL, " ");
+      aToks[i] = (int)atoi(aString);
+    }
+  
+  bString = strtok(colB, " ");
+  bToks[0] = (int)atoi(bString);
+
+  for (i = 1; i < length; i++)
+    {
+      bString = strtok(NULL, " ");
+      bToks[i] = (int)atoi(bString);
     }
 
-  // Covert Mat A/B to int arrays then take the dot product
-  fprintf(stdout, "%d\n", sum);
+  
+ 
+  for (i = 0; i < length; i++)
+    {
+      sum += aToks[i] * bToks[i];
 
-  // Write the value found to the shared memory for matmult_p.c
+      fprintf(stdout, "Sum: %d\n", sum);
+      fflush(stdout);
+    }
 
+  *shMem = sum;  
+  
   return 0;
-
+  
 }
