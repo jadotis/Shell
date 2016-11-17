@@ -32,6 +32,10 @@ void printArray(int * arr, int len);
 void printMat(int r, int c, int matrix[r][c]);
 int multiply(int * rowA, int * colB, int len);
 char * intarraytostring(int *array, int len);
+void reverse(char s[]);
+char * my_itoa(int n, char * s);
+
+
 
 /* Global variables */
 int children;
@@ -159,7 +163,7 @@ int main(int argc, char *argv[])
 	    }
 	  fprintf(stdout,"Matrix B column: %d: ", colSpace);
 	  printArray(tempCol, MatBrow);
-	  //printf("%s\n",intarraytostring(tempCol, MatBrow));
+	  //char * stringArray = intarraytostring(tempCol, MatBrow);
 	  
 	  int tempRow[MatAcol];
 	  int b; 
@@ -173,7 +177,7 @@ int main(int argc, char *argv[])
 	  fprintf(stdout,"Matrix A row: %d: ", rowSpace);
 	  printArray(tempRow, MatAcol);
 	  
-	//all this shit needs to be done with exec passing tempCol and tempRow as arguments not sure how to do this tbh
+	  //all this shit needs to be done with exec passing tempCol and tempRow as arguments not sure how to do this tbh
 	  int Cab = multiply(tempRow, tempCol, MatAcol);
 	  fprintf(stdout, ". product of A row %d and B col %d = %d\n", rowSpace, colSpace, Cab);
 	  // need to write this part to parent
@@ -246,7 +250,9 @@ char * intarraytostring(int *array, int len){
   int i; 
   char * string[50]; 
   for(i = 0; i < len; i++){
-    snprintf(string[i], sizeof(int), "%d", array[i]);
+    my_itoa(array[i], string[i]);
+    fprintf(stdout, "String[%d], %s\n", i, string[i]);
+    fflush(stdout);
   }
   
   return string;
@@ -263,4 +269,32 @@ int multiply(int * rowA, int * colB, int len){
   return total;
 }
 
+char * my_itoa(int n, char * s)
+{
+  int i, sign;
+  if ((sign = n) < 0)
+    n = -n;
+  i = 0;
+  do {
+    s[i++] = n % 10 + '0';
+  } while ((n /= 10) > 0);
 
+  if (sign < 0)
+    s[i++] = '-';
+  s[i] = '\0';
+  reverse(s);
+  return s;
+}
+
+
+void reverse(char s[]) {
+  int i, j;
+  char c;
+
+  for (i = 0, j = strlen(s)-1; i < j; i++, j--)
+    {
+      c = s[i];
+      s[i] = s[j];
+      s[j] = c;
+    }
+}
