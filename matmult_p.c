@@ -33,6 +33,10 @@ void printMat(int r, int c, int matrix[r][c]);
 int multiply(int * rowA, int * colB, int len);
 char * intarraytostring(int *array, int len);
 
+/* Global variables */
+int children;
+int pids[MAX_CHILDREN];
+
 int main(int argc, char *argv[])
 {
   int matrixA[MAX_ROWS][MAX_COLS];
@@ -80,14 +84,14 @@ int main(int argc, char *argv[])
   readInfo = readline("");
   cols = 0;
   while(readInfo != NULL)
-  {
+    {
     string = strtok(readInfo," ");
     matrixB[rows][cols] = atoi(string);
     while(string != NULL)
-    {
+      {
       string = strtok(NULL, " ");
       if(string == NULL)
-      {
+	{
         break;
       }
       cols++;
@@ -95,9 +99,9 @@ int main(int argc, char *argv[])
     }
     readInfo = readline("");
     if(readInfo == NULL)
-    {
-      break;
-    }
+      {
+	break;
+      }
     rows++;
     MatBcol = cols+1;
     cols = 0;
@@ -107,8 +111,8 @@ int main(int argc, char *argv[])
   //creat matrix C
   int matrixC[MatArow][MatBcol];
   printf("The answer to this multiplication will have dimensions: %d X %d\n", MatArow, MatBcol);
-
-
+  
+  
   //We have now read all the info for the matrices.
   //Error handling for the matrices.
   if(MatAcol != MatBrow)
@@ -116,7 +120,7 @@ int main(int argc, char *argv[])
     perror("Invalid Matrices: Please Enter proper Dimensions\n");
     exit(-1);
   }
-
+  
   int sharedMemory = shmget(IPC_PRIVATE, MatArow*MatBcol*4, IPC_CREAT | S_IRUSR | S_IWUSR);
   int *result = (int*)shmat(sharedMemory, NULL, 0); // points to the place where the processes will write their results
   //Initialize shared memory.
@@ -125,11 +129,9 @@ int main(int argc, char *argv[])
   memkeys[1] = secondArrayKey;
   memkeys[2] = sharedMemory;
 
-  int pids[MAX_CHILDREN];
   pid_t pid;
   int rowSpace;
   int colSpace;
-  int children;
   int NumbersProcessed;
   for(rowSpace = 0; rowSpace < MatArow; rowSpace++)
   {
@@ -140,59 +142,79 @@ int main(int argc, char *argv[])
         fprintf(stdout, "Our children have problems\n");
         perror(NULL);
       }
+
+      if (pid > 0)
+	{
+	  pids[children++] = pid;
+	}
+      
       if(pid == 0)
-      {
-	int tempCol[MatBrow];
-	int a;
-	for(a = 0; a < MatBrow; a++){
-	  tempCol[a] = matrixB[a][colSpace]; 
-	}
-	fprintf(stdout,"Matrix B column: %d: ", colSpace);
-	printArray(tempCol, MatBrow);
-	printf("%s\n",intarraytostring(tempCol, MatBrow));
+	{
+	  fflush(stdout);
+	  int tempCol[MatBrow];
+	  int a;
+	  for(a = 0; a < MatBrow; a++)
+	    {
+	      tempCol[a] = matrixB[a][colSpace];
+	    }
+	  fprintf(stdout,"Matrix B column: %d: ", colSpace);
+	  printArray(tempCol, MatBrow);
+	  //printf("%s\n",intarraytostring(tempCol, MatBrow));
+	  
+	  int tempRow[MatAcol];
+	  int b; 
+	  for(b = 0; b < MatAcol; b++)
+	    {
+	      tempRow[b] = matrixA[rowSpace][b];
+	    }
 
-	int tempRow[MatAcol];
-	int b; 
-	for(b = 0; b < MatAcol; b++){
-	  tempRow[b] = matrixA[rowSpace][b];
-	}
-	fprintf(stdout,"Matrix A row: %d: ", rowSpace);
-	printArray(tempRow, MatAcol);
-	
+
+	  
+	  fprintf(stdout,"Matrix A row: %d: ", rowSpace);
+	  printArray(tempRow, MatAcol);
+	  
 	//all this shit needs to be done with exec passing tempCol and tempRow as arguments not sure how to do this tbh
-	int Cab = multiply(tempRow, tempCol, MatAcol);
-	fprintf(stdout, ". product of A row %d and B col %d = %d\n", rowSpace, colSpace, Cab);
-	// need to write this part to parent
-	matrixC[rowSpace][colSpace] = Cab;
-        pids[children++] = getpid(); //store the process ID of the child to be waited on.
-        //execlp("./multiply",matrixA[rowSpace], matrixB[colSpace], result+(NumbersProcessed++));
-        //We pass in the row of A, Col of B and the return addess of the shared Memory object.
-      }
+	  int Cab = multiply(tempRow, tempCol, MatAcol);
+	  fprintf(stdout, ". product of A row %d and B col %d = %d\n", rowSpace, colSpace, Cab);
+	  // need to write this part to parent
+	  matrixC[rowSpace][colSpace] = Cab;
+	  //execlp("./multiply",matrixA[rowSpace], matrixB[colSpace], result+(NumbersProcessed++));
+	  //We pass in the row of A, Col of B and the return addess of the shared Memory object.
+	  exit(1);
+	}
       else
-      {
-        continue;
-      }
-      }
-
+	{
+	  continue;
+	}
     }
-  int statflag;
-  int i = 0;
-  for(i; i < children; i++)
-  {
-    if((pids[i] = waitpid(pids[i], &statflag, 0)) < 0)
-    {
-      perror(NULL);
-      fprintf(stderr, "Error waiting on the child: %d\n", pids[i]);
-    }
-    else
-    {
-
-    }
+    
   }
-//Handle shared Memory;
-//Optional pass to matformatter/
-//shmaddr
-
+  if (pid > 0)
+    {
+      fprintf(stdout, "Value of children: %d\n", children);
+      fflush(stdout);
+      int statflag;
+      int i = 0;
+      for(i; i < children; i++)
+	{
+	  if((pids[i] = waitpid(pids[i], &statflag, 0)) < 0)
+	    {
+	      fprintf(stdout, "ERRRORRRRRRR\n");
+	      fflush(stdout);
+	      perror(NULL);
+	      fprintf(stderr, "Error waiting on the child: %d\n", pids[i]);
+	    }
+	  else
+	    {
+	      fprintf(stdout, "PID of child we just waited on: %d\n", pids[i]);
+	      //fflush(stdout);
+	    }
+	}
+    }
+  //Handle shared Memory;
+  //Optional pass to matformatter/
+  //shmaddr
+  
   printMat(MatArow, MatBcol, matrixC);
 }
 
@@ -208,23 +230,23 @@ void printArray(int * arr, int len){
 }
 
 void printMat(int r, int c, int matrix[r][c]){
-    int row, columns;
-    printf("Matrix:\n");
-    for (int row=0; row<r; row++)
-      {
-	for(int columns=0; columns<c; columns++)
-	  printf("%d     ", matrix[row][columns]);
-	printf("\n");
-      }
-    printf("\n");
-  }
+  int row, columns;
+  printf("Matrix:\n");
+  for (int row=0; row<r; row++)
+    {
+      for(int columns=0; columns<c; columns++)
+	printf("%d     ", matrix[row][columns]);
+      printf("\n");
+    }
+  printf("\n");
+}
 
 //this one is a work in progress
 char * intarraytostring(int *array, int len){
   int i; 
   char * string[50]; 
   for(i = 0; i < len; i++){
-    string[i] = array[i] + '0';
+    snprintf(string[i], sizeof(int), "%d", array[i]);
   }
   
   return string;
