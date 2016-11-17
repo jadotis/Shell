@@ -1,4 +1,0 @@
-all:
-	gcc myShell.c -o myShell
-clear:
-	rm myShell || true
