@@ -15,18 +15,24 @@ int main(int argc, char *argv[]){
 
   int sum = 0;
   // Will read argv[1] and argv[2] as Matrix A and B
-  char * matA = argv[1];
-  char * matB = argv[2];
+  char * matA; 
+  matA = argv[1];
+  char * matB; 
+  matB = argv[2];
+  // Something weird is going on not sure why I cannot grab argv 1/2
+
 
   //str tok both
   char * Atok, Btok;
   Atok = strtok(matA, " ");
   Btok = strtok(matB, " ");
-  //tok A
+
   while( (Atok!=NULL) && (Btok !=NULL) ){
-      sum += atoi(Atok)+atoi(Btok);
-      Atok = strtok(matA, " ");
-      Btok = strtok(matB, " ");
+    fprintf(stdout, "%s\t%s\t%d\n", Atok, Btok, sum);
+    sum += atoi(Atok) * atoi(Btok);
+    Atok = strtok(matA, " ");
+    Btok = strtok(matB, " ");
+    fprintf(stdout, "%d\n", sum);
     }
 
   // Covert Mat A/B to int arrays then take the dot product
