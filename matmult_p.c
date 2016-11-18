@@ -17,18 +17,15 @@
 #define MAX_ROWS 20
 #define MAX_COLS 20
 #define MAX_CHILDREN 200
-char *grabRow(int *array[], int index, int size);
-char *grabCol(int *array[], int index, int size);
+#define MAX_ARGS 25
+char *grabRow(int array[][MAX_COLS], int index, int size);
+char *grabCol(int array[][MAX_COLS], int index, int size);
 void reverse(char s[]);
 void itoa(int n, char s[]);
-
-
-
 
 int firstArrayKey;
 int secondArrayKey;
 int numChildren;
-pid_t pids[MAX_CHILDREN];
 //helper functions below main function
 /* Global variables */
 
@@ -38,7 +35,8 @@ int main(int argc, char *argv[])
   int matrixB[MAX_ROWS][MAX_COLS];
   memset(matrixA, 0, 4*MAX_COLS*MAX_ROWS);
   memset(matrixB, 0, 4*MAX_COLS*MAX_ROWS);
-
+  int pids[MAX_CHILDREN][MAX_CHILDREN];
+  int i, j;
 
   int cols = 0;
   int rows = 0;
@@ -116,59 +114,76 @@ int main(int argc, char *argv[])
   }
   
   int sharedMemory = shmget(IPC_PRIVATE, MatArow*MatBcol*4, IPC_CREAT | S_IRUSR | S_IWUSR);
-  char *result = (char*)shmat(sharedMemory, NULL, 0); // points to the place where the processes will write their results
+  void *result = shmat(sharedMemory, NULL, 0); // points to the place where the processes will write their results
   //Initialize shared memory.
   int memkeys[3];
   memkeys[0] = firstArrayKey;
   memkeys[1] = secondArrayKey;
   memkeys[2] = sharedMemory;
   numChildren = MatArow * MatBcol;
-  int i = 0;
   char * arg1;
-  char * size;
-  itoa(MatArow, &size);
-
-  for(i; i < numChildren; i++)
+  char * size = malloc(20);
+  char * args[MAX_ARGS];
+  itoa(MatAcol, size);
+  pid_t pid;
+  
+  for(i = 0; i < MatArow; i++)
   {
-    if((pids[i] = fork()) < 0)
+    for(j = 0; j < MatBcol; j++)
     {
-      perror(NULL);
-      fprintf(stdout,"Child %d failed to fork\n", getpid());
-    }
-    if(pids[i] == 0)
-    { 
-      char *argv[4];
-      argv[0] = "./multiply";
-      argv[1] = grabRow(matrixA, i, MatArow);
-      argv[2] = grabCol(matrixB, i, MatArow);
-      argv[3] = size;
-      argv[4] = result;
-
-      fprintf(stdout, "int i is: %d\n", i);
-      fflush(stdout);
-      execvp(argv[0], argv);
-      
-      
-    }
-    else if(pids[i] > 0) //The parent
-    {
-      int j = 0;
-      int dickflag;
-      for(j; j < numChildren; j++)
+      if((pid = fork()) < 0)
       {
-        if((pids[j] = waitpid(pids[j], &dickflag, 0)) < 0)
+        perror(NULL);
+        fprintf(stderr,"There was an error waiting on a child\b");
+      }
+      else if(pid == 0)
+      {
+        fprintf(stdout, "\nVal of i: %d\nVal of j: %d\n", i, j);
+        fflush(stdout);
+        args[0] = "./multiply";
+        args[1] = grabRow(matrixA, i, MatAcol); //Grabs a row from MatA of size MatAcol
+        args[2] = grabCol(matrixB, j, MatBrow); //Grabs a col from MatB of size MatBrow
+        args[3] = size; //The inner dimension
+        args[4] = (char *)result; //Takes the memory Address
+        args[5] = (char *) NULL;
+        result = result+4;
+        if((execvp(args[0], args)) < 0)
         {
-          perror(NULL);
-          fprintf(stderr, "There was an error with teh FUCKING children\n");
-        }
-        else
-        {
-         fprintf(stdout,"successfuly waited on the child pids[%d]: %d\n", j, pids[j]); 
+          perror("");
         }
       }
+      else   // parent
+      {
+        pids[i][j] = pid;
+      } //End the parent case
     }
   }
-  //End
+
+    for (i = 0; i < MatArow; i++)
+    {
+      for (j = 0; j < MatBcol; j++)
+      {
+        if (pids[i][j] > 0)
+        {
+          int statflag;
+          if((pids[i][j] = waitpid(pids[i][j], &statflag, 0)) < 0)
+          {
+            perror(NULL);
+            fprintf(stderr, "There was an error waiting on the %d\n", pids[i][j]);
+          }
+          else
+          {
+            fprintf(stdout,"Waiting on child: %d\n", pids[i][j]);
+            fflush(stdout);
+          } 
+        } //En
+      }
+    }
+    
+
+  
+  fprintf(stdout, "Successfully made it to the end of the all the children\n");
+  //End children processing
   
 }
 
@@ -207,28 +222,28 @@ void itoa(int n, char s[])
  }
 
 
-char *grabRow(int *array[], int index, int size)
+char *grabRow(int array[][MAX_COLS], int index, int size)
 {
-    char * buffer;
-    char * string;
+    char * buffer = malloc(500);
+    char * string = malloc(500);
     int i = 0;
     for(i; i < size; i++)
     {
-      itoa(array[index][i], &buffer);
+      itoa(array[index][i], buffer);
       strcat(string, buffer);
       strcat(string, " "); //This should be fine.
     }
     return string;
 }
 
-char *grabCol(int *array[], int index, int size)
+char *grabCol(int array[][MAX_COLS], int index, int size)
 {
-  char * buffer;
-  char * string;
+  char * buffer = malloc(500);
+  char * string = malloc(500);
   int i = 0;
   for(i; i < size; i++)
   {
-    itoa(array[i][index], &buffer);
+    itoa(array[i][index], buffer);
     strcat(string, buffer);
     strcat(string, " ");
   }

@@ -67,8 +67,10 @@ int main(int argc, char *argv[])
       fflush(stdout);
     }
 
-  *shMem = sum;  
+  *shMem = sum;
+  fprintf(stdout, "MADE IT HERE\n");
+  fflush(stdout);  
   
-  return 0;
+  exit(1);
   
 }
