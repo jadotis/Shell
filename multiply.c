@@ -13,6 +13,8 @@
 
 int main(int argc, char *argv[])
 {
+  close(1);
+
   long sum = 0;
   // Will read argv[1] and argv[2] as Matrix A and B
   char * rowA = argv[1];

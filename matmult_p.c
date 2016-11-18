@@ -44,6 +44,9 @@ int main(int argc, char *argv[])
   int MatAcol;
   int MatBrow;
   int MatBcol;
+  int fd;
+  fd = dup(STDOUT_FILENO);
+  close(STDOUT_FILENO);
 
   char * readInfo;
   char * string;
@@ -100,9 +103,9 @@ int main(int argc, char *argv[])
     cols = 0;
   }
   MatBrow = rows+1;
-  printf("The matrices at dimensions: %d X %d and %d X %d\n", MatArow, MatAcol,MatBrow,MatBcol);
+  //printf("The matrices at dimensions: %d X %d and %d X %d\n", MatArow, MatAcol,MatBrow,MatBcol);
   //creat matrix C
-  printf("The answer to this multiplication will have dimensions: %d X %d\n", MatArow, MatBcol);
+  //printf("The answer to this multiplication will have dimensions: %d X %d\n", MatArow, MatBcol);
   
   
   //We have now read all the info for the matrices.
@@ -119,7 +122,7 @@ int main(int argc, char *argv[])
   char * sharedMemString = (char *)malloc(20);
   //Initialize shared memory.
   itoa(sharedMemoryKey, sharedMemString);
-  fprintf(stdout, "The shared Memory key is %s\n and %d\n", sharedMemString, sharedMemoryKey);
+  //fprintf(stdout, "The shared Memory key is %s\n and %d\n", sharedMemString, sharedMemoryKey);
   numChildren = 0;
   char * arg1;
   char * size = malloc(20);
@@ -127,7 +130,6 @@ int main(int argc, char *argv[])
   char * stringChild = malloc(20);
   itoa(MatAcol, size);
   pid_t pid;
-  
   for(i = 0; i < MatArow; i++)
   {
     for(j = 0; j < MatBcol; j++)
@@ -141,7 +143,6 @@ int main(int argc, char *argv[])
       else if(pid == 0)
       {
         itoa(numChildren, stringChild);
-        fflush(stdout);
         args[0] = "./multiply";
         args[1] = grabRow(matrixA, i, MatAcol); //Grabs a row from MatA of size MatAcol
         args[2] = grabCol(matrixB, j, MatBrow); //Grabs a col from MatB of size MatBrow
@@ -150,7 +151,6 @@ int main(int argc, char *argv[])
         args[5] = stringChild;
         args[6] = (char *) NULL;
         result += 4*numChildren;
-        fprintf(stdout, "The result is %x\n", result);
         if((execvp(args[0], args)) < 0)
         {
           perror("");
@@ -177,7 +177,6 @@ int main(int argc, char *argv[])
           }
           else
           {
-            fflush(stdout);
           } 
         } //En
       }
@@ -191,10 +190,16 @@ int main(int argc, char *argv[])
   {
     sprintf(tempString, "%d ", *final);
     strcat(returnString, tempString);
+    if(i % MatAcol == 1)       //The logic for adding new line characters.
+    {
+      strcat(returnString,"\n");
+    }
     //fprintf(stdout, "The integer returned was: %d\n", *final);
     final++;
   }
-  fprintf(stdout, "%s\n", returnString);
+  dup2(fd, 1);
+  
+  printf("%s\n", returnString);
   
 }
 
