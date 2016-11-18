@@ -196,6 +196,7 @@ int main(int argc, char *argv[])
     }
     //fprintf(stdout, "The integer returned was: %d\n", *final);
     final++;
+    //printf("%s\n", returnString);
   }
   dup2(fd, 1);
   
@@ -242,8 +243,8 @@ char *grabRow(int array[][MAX_COLS], int index, int size)
 {
     char * buffer = malloc(500);
     char * string = malloc(500);
-    int i = 0;
-    for(i; i < size; i++)
+    int i;
+    for(i = 0; i < size; i++)
     {
       itoa(array[index][i], buffer);
       strcat(string, buffer);
@@ -256,8 +257,8 @@ char *grabCol(int array[][MAX_COLS], int index, int size)
 {
   char * buffer = malloc(500);
   char * string = malloc(500);
-  int i = 0;
-  for(i; i < size; i++)
+  int i;
+  for(i = 0; i < size; i++)
   {
     itoa(array[i][index], buffer);
     strcat(string, buffer);
