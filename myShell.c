@@ -751,7 +751,7 @@ void pipeHandler(char *tokens[], int length)
         k++;
     }
     pid_t finalChild;
-    if((finalChild == fork()) < 0 )
+    if((finalChild = fork()) < 0 )
     {
         perror("");
     }
