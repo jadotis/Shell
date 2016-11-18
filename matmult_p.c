@@ -113,17 +113,18 @@ int main(int argc, char *argv[])
     exit(-1);
   }
   
-  int sharedMemory = shmget(IPC_PRIVATE, MatArow*MatBcol*4, IPC_CREAT | S_IRUSR | S_IWUSR);
-  void *result = shmat(sharedMemory, NULL, 0); // points to the place where the processes will write their results
+  int sharedMemoryKey = shmget(IPC_PRIVATE, MatArow*MatBcol*4, IPC_CREAT | S_IRUSR | S_IWUSR);
+  void *result = shmat(sharedMemoryKey, NULL, 0); // points to the place where the processes will write their results
+  int * final = (int*)result; //The saved value of the shared memory.
+  char * sharedMemString = (char *)malloc(20);
   //Initialize shared memory.
-  int memkeys[3];
-  memkeys[0] = firstArrayKey;
-  memkeys[1] = secondArrayKey;
-  memkeys[2] = sharedMemory;
-  numChildren = MatArow * MatBcol;
+  itoa(sharedMemoryKey, sharedMemString);
+  fprintf(stdout, "The shared Memory key is %s\n and %d\n", sharedMemString, sharedMemoryKey);
+  numChildren = 0;
   char * arg1;
   char * size = malloc(20);
   char * args[MAX_ARGS];
+  char * stringChild = malloc(20);
   itoa(MatAcol, size);
   pid_t pid;
   
@@ -131,6 +132,7 @@ int main(int argc, char *argv[])
   {
     for(j = 0; j < MatBcol; j++)
     {
+      numChildren++;
       if((pid = fork()) < 0)
       {
         perror(NULL);
@@ -138,15 +140,17 @@ int main(int argc, char *argv[])
       }
       else if(pid == 0)
       {
-        fprintf(stdout, "\nVal of i: %d\nVal of j: %d\n", i, j);
+        itoa(numChildren, stringChild);
         fflush(stdout);
         args[0] = "./multiply";
         args[1] = grabRow(matrixA, i, MatAcol); //Grabs a row from MatA of size MatAcol
         args[2] = grabCol(matrixB, j, MatBrow); //Grabs a col from MatB of size MatBrow
         args[3] = size; //The inner dimension
-        args[4] = (char *)result; //Takes the memory Address
-        args[5] = (char *) NULL;
-        result = result+4;
+        args[4] = sharedMemString; //Takes the memory Address
+        args[5] = stringChild;
+        args[6] = (char *) NULL;
+        result += 4*numChildren;
+        fprintf(stdout, "The result is %x\n", result);
         if((execvp(args[0], args)) < 0)
         {
           perror("");
@@ -173,17 +177,24 @@ int main(int argc, char *argv[])
           }
           else
           {
-            fprintf(stdout,"Waiting on child: %d\n", pids[i][j]);
             fflush(stdout);
           } 
         } //En
       }
     }
-    
-
   
-  fprintf(stdout, "Successfully made it to the end of the all the children\n");
   //End children processing
+  final++;
+  char * returnString = malloc(1000);
+  char * tempString = malloc(10);
+  for(i = 0; i < numChildren; i++)
+  {
+    sprintf(tempString, "%d ", *final);
+    strcat(returnString, tempString);
+    //fprintf(stdout, "The integer returned was: %d\n", *final);
+    final++;
+  }
+  fprintf(stdout, "%s\n", returnString);
   
 }
 
