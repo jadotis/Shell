@@ -15,8 +15,6 @@
 #define MAX_ROWS 20
 #define MAX_COLS 20
 
-void printMat(int r, int c, int matrix[r][c]);
-
 int main(int argc, char *argv[])
 {
   //Step 1: Read Matrix from STDIn (not sure exactly how he wants this done)
@@ -57,7 +55,7 @@ int main(int argc, char *argv[])
   rows = 0;
 
   //Step 2: Determine dimmensions of read array
-  printf("The matrix dimensions: %d X %d\n", MatArow, MatAcol);
+  printf("The original matrix dimensions: %d X %d\nThe new matrix dimensioins: %d X %d\n", MatArow, MatAcol,MatAcol,MatArow);
 
   //Step 3: Create new array with flipped dimensions ie 2 X 3 -> 3 X 2
   int matrixTrans[MatAcol][MatArow];
@@ -69,26 +67,18 @@ int main(int argc, char *argv[])
       matrixTrans[j][i] = matrixA[i][j];
     }
   }
-
   //Step 5: write new transposed matrix to stdout
-  printMat(MatAcol, MatArow, matrixTrans[MatAcol][MatArow]);
-  
-
+  fprintf(stdout,"Matrix:\n");
+  for(i = 0; i < MatAcol; i++){
+    for(j =0; j < MatArow; j++){
+      fprintf(stdout, "%d ", matrixTrans[i][j]);
+    }
+    fprintf(stdout, "\n");
+  }
+  fprintf(stdout, "\n");
   return 0;
 
 
 
 }
 
-
-void printMat(int r, int c, int matrix[r][c]){
-  int row, columns;
-  printf("Matrix:\n");
-  for (int row=0; row<r; row++)
-    {
-      for(int columns=0; columns<c; columns++)
-	printf("%d     ", matrix[row][columns]);
-      printf("\n");
-    }
-  printf("\n");
-}
