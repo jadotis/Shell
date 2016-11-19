@@ -20,17 +20,17 @@ int main(int argc, char *argv[])
   char * rowA = argv[1];
   char * colB = argv[2];
 
+
   int length = (int)atoi(argv[3]);
   int memKey = (int)atoi(argv[4]); // look up
-  fprintf(stdout, "The mem key received is %d\n", memKey);
   int * writeLocation = (int*)shmat(memKey, NULL, 0);
   writeLocation += atoi(argv[5]);
    //atoi hex
 
   fflush(stdout);
 
-  int aToks[3];
-  int bToks[3];
+  int aToks[length];
+  int bToks[length];
   
   //fprintf (stdout, "argv[1]: %s\n", argv[1]);
   //fprintf(stdout, "%s\n", colB);
@@ -44,14 +44,16 @@ int main(int argc, char *argv[])
 	      
   aString = strtok(rowA, " ");
   aToks[0] = (int)atoi(aString);
-
   int i;
   for (i = 1; i < length; i++)
     {
       aString = strtok(NULL, " ");
       aToks[i] = (int)atoi(aString);
     }
-  
+
+  //aToks[4] is ALWAYS wrong
+  //fprintf(stdout, "aToks[4]: %d\n", aToks[4]);
+
   bString = strtok(colB, " ");
   bToks[0] = (int)atoi(bString);
 
@@ -65,12 +67,11 @@ int main(int argc, char *argv[])
  
   for (i = 0; i < length; i++)
     {
+      fprintf(stdout, "aToks[%d]: %d\nbToks[%d]: %d\n\n", i, aToks[i], i, bToks[i]);
       sum += aToks[i] * bToks[i];
-
       fprintf(stdout, "Sum: %d\n", sum);
       fflush(stdout);
     }
-
   *writeLocation = sum;
   exit(1);
   

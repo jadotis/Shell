@@ -124,8 +124,8 @@ void doRest(char *tokens[], int length)
 */
     else if (length > 1)
     {
-        int j;
-        for (j = 0; j < length; j++)
+        int j = 0;
+        for (j; j < length; j++)
         {
             if (strcmp(tokens[j], "|") == 0 || strcmp(tokens[j], ">") == 0 || strcmp(tokens[j], "<") == 0 ||
                 strcmp(tokens[j], "1>") == 0 || strcmp(tokens[j], "2>") == 0 || strcmp(tokens[j], "&>") == 0 ||
@@ -615,8 +615,8 @@ void doRest(char *tokens[], int length)
 void pipeCreator(char *tokens[], int length)
 {
     int numPipes = 0;
-    int i;
-    for (i = 0; i < length; i++)
+    int i = 0;
+    for (i; i < length; i++)
     {
         if (tokens[i][0] == '|')
         {
@@ -751,7 +751,7 @@ void pipeHandler(char *tokens[], int length)
         k++;
     }
     pid_t finalChild;
-    if((finalChild = fork()) < 0 )
+    if((finalChild == fork()) < 0 )
     {
         perror("");
     }

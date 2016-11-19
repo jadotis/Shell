@@ -63,16 +63,15 @@ int main(int argc, char *argv[])
         break;
       }
       cols++;
+      MatAcol = cols + 1;
       matrixA[rows][cols] = atoi(string);
     }
     readInfo = readline("");
     if(readInfo[0] == '\0')
     {
-
       break;
     }
     rows++;
-    MatAcol = cols+1;
     cols = 0;
   }
   MatArow = rows+1;
@@ -84,26 +83,27 @@ int main(int argc, char *argv[])
     string = strtok(readInfo," ");
     matrixB[rows][cols] = atoi(string);
     while(string != NULL)
-      {
+    {
       string = strtok(NULL, " ");
       if(string == NULL)
-	{
+	    {
         break;
       }
       cols++;
       matrixB[rows][cols] = atoi(string);
     }
     readInfo = readline("");
-    if(readInfo == NULL)
-      {
-	break;
-      }
+    if(readInfo == NULL )
+    {
+	    break;
+    }
     rows++;
     MatBcol = cols+1;
     cols = 0;
   }
   MatBrow = rows+1;
-  //printf("The matrices at dimensions: %d X %d and %d X %d\n", MatArow, MatAcol,MatBrow,MatBcol);
+  fprintf(stderr,"The matrices at dimensions: %d X %d and %d X %d\n", MatArow, MatAcol,MatBrow,MatBcol);
+  fflush(stderr);
   //creat matrix C
   //printf("The answer to this multiplication will have dimensions: %d X %d\n", MatArow, MatBcol);
   
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
   //Error handling for the matrices.
   if(MatAcol != MatBrow)
   {
-    perror("Invalid Matrices: Please Enter proper Dimensions\n");
+    fprintf(stderr,"Invalid Matrices: Please Enter proper Dimensions\n");
     exit(-1);
   }
   
@@ -181,26 +181,28 @@ int main(int argc, char *argv[])
         } //En
       }
     }
-  
+    dup2(fd, 1);
   //End children processing
   final++;
   char * returnString = malloc(1000);
   char * tempString = malloc(10);
   for(i = 0; i < numChildren; i++)
   {
-    sprintf(tempString, "%d ", *final);
+    sprintf(tempString, "%d", *final);
     strcat(returnString, tempString);
-    if(i % MatAcol == 1)       //The logic for adding new line characters.
+    if(i % MatAcol == 1)       //If we are the end of the line put a newline
     {
       strcat(returnString,"\n");
     }
+    else
+    {
+      strcat(returnString, " "); //Else Space delimit them.
+    }
     //fprintf(stdout, "The integer returned was: %d\n", *final);
     final++;
-    //printf("%s\n", returnString);
   }
   dup2(fd, 1);
-  
-  printf("%s\n", returnString);
+  fprintf(stdout,"%s", returnString);
   
 }
 
@@ -243,8 +245,8 @@ char *grabRow(int array[][MAX_COLS], int index, int size)
 {
     char * buffer = malloc(500);
     char * string = malloc(500);
-    int i;
-    for(i = 0; i < size; i++)
+    int i = 0;
+    for(i; i < size; i++)
     {
       itoa(array[index][i], buffer);
       strcat(string, buffer);
@@ -257,8 +259,8 @@ char *grabCol(int array[][MAX_COLS], int index, int size)
 {
   char * buffer = malloc(500);
   char * string = malloc(500);
-  int i;
-  for(i = 0; i < size; i++)
+  int i = 0;
+  for(i; i < size; i++)
   {
     itoa(array[i][index], buffer);
     strcat(string, buffer);

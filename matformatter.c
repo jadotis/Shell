@@ -15,58 +15,59 @@
 #define MAX_ROWS 20
 #define MAX_COLS 20
 
-int main(int argc, char *argv[])
+int main(int argc, char * argv[])
 {
-  //Step 1: Read Matrix from STDIn (not sure exactly how he wants this done)
+  fflush(stdout);
   int matrixA[MAX_ROWS][MAX_COLS];
+  memset(matrixA, 0, 4*MAX_COLS*MAX_ROWS);
   int cols = 0;
   int rows = 0;
   int MatArow;
   int MatAcol;
-
-  char * readInfo;
-  char * string;
+  char * readInfo = malloc(1000);
+  char * string = malloc(100);
+  int fd = dup(STDOUT_FILENO);
+  close(STDOUT_FILENO);
   readInfo = readline("");
+  int tempcols = 0;
   while(readInfo != NULL)
+  {
+    string = strtok(readInfo, " ");
+    //fprintf(stdout,"After string tok %d value instered is:%d\n", rows*cols, matrixA[rows][cols]);
+    matrixA[rows][cols] = atoi(string);
+    string = strtok(NULL, " ");
+    while(string != NULL)
     {
-      string = strtok(readInfo," ");
+      cols++;
       matrixA[rows][cols] = atoi(string);
-      while(string != NULL)
-	{
-	  string = strtok(NULL, " ");
-	  if(string == NULL)
-	    {
-	      break;
-	    }
-	  cols++;
-	  matrixA[rows][cols] = atoi(string);
-	}
-      readInfo = readline("");
-      if(readInfo[0] == '\0')
-	{
-
-	  break;
-	}
-      rows++;
-      MatAcol = cols+1;
-      cols = 0;
+      string = strtok(NULL, " ");
     }
-  MatArow = rows+1;
-  rows = 0;
+    rows++;
+    tempcols = cols;
+    cols = 0;
+    readInfo = readline("");
+  }
 
+  //fprintf(stdout, "We get here with rows: %d, cols: %d\n", rows, tempcols);
+  fflush(stdout);
+  MatArow = rows;
+  MatAcol = tempcols + 1;
   //Step 2: Determine dimmensions of read array
-  printf("The original matrix dimensions: %d X %d\nThe new matrix dimensioins: %d X %d\n", MatArow, MatAcol,MatAcol,MatArow);
-
   //Step 3: Create new array with flipped dimensions ie 2 X 3 -> 3 X 2
   int matrixTrans[MatAcol][MatArow];
+  memset(matrixTrans, 0, 4*MatAcol*MatArow);
+
+
 
   //Step 4: Loop through rows / columns of original array [i][j] and fill new array with at positoin [j][i]
   int i, j;
   for(i = 0; i < MatArow; i++){
     for(j = 0; j < MatAcol; j++){
+      //fprintf(stdout,"Values inserted: %d\n", matrixA[i][j]);
       matrixTrans[j][i] = matrixA[i][j];
     }
   }
+  dup2(fd, STDOUT_FILENO);
   //Step 5: write new transposed matrix to stdout
   fprintf(stdout,"Matrix:\n");
   for(i = 0; i < MatAcol; i++){
