@@ -57,8 +57,8 @@ pid_t parent;
 int main()
 {
     parent = getpid();
-    dup2(STDOUT_FILENO, stdoutCopy);
-    dup2(STDOUT_FILENO, stdoutCopy);
+    //dup2(STDOUT_FILENO, stdoutCopy);
+    //dup2(STDOUT_FILENO, stdoutCopy);
     clear();
     fprintf(stdout, "%sWelcome to the MyShell Processd\n", BLU);
     fprintf(stdout, "%sEnter exit ot quit!\n", BLU);
@@ -119,10 +119,10 @@ int main()
 
         westWorld(tokens, length);
         memset(tokens, (char*)NULL,8*length);
+        memset(pipes, (char*)NULL, 4*2*MAXPIPES);
         pipeIndexer = 0;
+        pipeTotal = 0;
         } //End main for loop
-        dup2(stdinCopy,STDIN_FILENO);
-        dup2(stdoutCopy, STDOUT_FILENO);
 
     } //End main while loop
 
@@ -210,7 +210,9 @@ void lovingDemPipes(char * tokens[], int i)
     {
         if(pipeIndexer == 0)
         {
-            dup2( pipes[pipeIndexer][1], STDOUT_FILENO); //Direct standard out to write end of pipe.
+            close(STDIN_FILENO);
+            close(STDOUT_FILENO);
+            dup2(pipes[pipeIndexer][1], STDOUT_FILENO); //Direct standard out to write end of pipe.
             close(pipes[pipeIndexer][0]); //close the read end
             char * argv[MAX_ARGS];
             memset(argv, (char *)NULL, 8*MAX_ARGS);
@@ -242,12 +244,13 @@ void lovingDemPipes(char * tokens[], int i)
     else if(child > 0)
     {
         pid_t childTwo;
+        sleep(1);
         close(pipes[pipeIndexer][1]);
         if((child = waitpid(child, NULL, 0)) < 0)
         {
             perror("Error waiting on the child");
         }
-        else if(pipeIndexer == pipeTotal - 1)
+        if(pipeIndexer == pipeTotal - 1)
         {
                 if((childTwo = fork()) < 0)
                 {
@@ -256,7 +259,8 @@ void lovingDemPipes(char * tokens[], int i)
                 else if(childTwo == 0)
                 {
                     dup2(pipes[pipeIndexer][0], STDIN_FILENO);
-                    close(pipes[pipeIndexer][1]);
+                    dup2(pipes[pipeIndexer][1], STDOUT_FILENO);
+                    //close(pipes[pipeIndexer][1]);
                     char * argv[MAX_ARGS];
                     memset(argv, (char *)NULL, 8*MAX_ARGS);
                     getArgsAfter(argv, tokens, i);
@@ -289,19 +293,23 @@ void lovingDemPipes(char * tokens[], int i)
         }
         else //The case of multiple pipes
         {
-            if((child = fork()) < 0)
+            pid_t childThree;
+            if((childThree = fork()) < 0)
                 {
                     perror("");
                 } 
-                else if(child == 0)
+                else if(childThree == 0)
                 {
-                    dup2(pipes[pipeIndexer][0], STDIN_FILENO); //put readend into STDIN
-                    dup2(STDOUT_FILENO ,pipes[pipeIndexer+1][1]);
+                    close(STDIN_FILENO);
+                    close(STDOUT_FILENO);
+                    dup2(pipes[pipeIndexer][0], STDIN_FILENO); //put readend into STDOUT
+                    dup2(pipes[pipeIndexer+1][1], STDOUT_FILENO);
+                    //close(pipes[pipeIndexer][1]);
                     close(pipes[pipeIndexer+1][0]);
-                    // close(pipes[pipeIndexer-1][1]);
                     char * argv[MAX_ARGS];
                     memset(argv, (char *)NULL, 8*MAX_ARGS);
                     getArgsAfter(argv, tokens, i);
+                    char * buffer = malloc(MAXLINE);
                     if (argv[0] == 0)
                     {
                         if ((execlp(tokens[i + 1], tokens[i + 1], (char*)NULL)) < 0)
@@ -322,7 +330,7 @@ void lovingDemPipes(char * tokens[], int i)
                 else // parent
                 {
                     close(pipes[pipeIndexer][1]);
-                    if((child = waitpid(child, NULL, 0)) < 0)
+                    if((childThree = waitpid(childThree, NULL, 0)) < 0)
                     {
                         perror("Error waiting");
                     }
