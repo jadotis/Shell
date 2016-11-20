@@ -36,7 +36,7 @@ void redirStderr(char * tokens[], int i); //Redicted stderr to outputfile
 void redirBoth(char * tokens[], int i); //Redicted stderr to outputfile
 void runinBackground(char * tokens[], int i); //Redicted stderr to outputfile
 void lovingDemPipes(char * tokens[], int i);
-
+void directoryHanler(char * tokens[]);
 void sig_handler(int signo);
 void sig_handler2(int signo);
 void clear();
@@ -75,16 +75,17 @@ int main()
     /*  End Signal handling  */
 
     /* BEGIN COMMAND LINE PARSING */
+    fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
+
     char *line = "";
     while (strcmp(line, "exit") != 0)
     {
         line = (char *)NULL;
-        fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
         line = readline("");
         //Exit case:
         if (strcmp(line, "exit") == 0)
         {
-            fprintf(stdout, "Thanks for using our Shell! Its better than the other ones...");
+            fprintf(stdout, "%sThanks for using our Shell! Its better than the other ones...\n", RED);
             break;
         }
         //Tokenize the input string
@@ -122,6 +123,8 @@ int main()
         memset(pipes, (char*)NULL, 4*2*MAXPIPES);
         pipeIndexer = 0;
         pipeTotal = 0;
+        fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
+
         } //End main for loop
 
     } //End main while loop
@@ -149,7 +152,7 @@ int isBasecase(char * tokens[], int length)
 void westWorld(char * tokens[], int length)
 {
     semiCounter = 0;
-    if(isBasecase(tokens, length)) // We do not have any control characters. (WORKING)
+    if(isBasecase(tokens, length) && strcmp(tokens[0],"cd") != 0) // We do not have any control characters. (WORKING)
     {
         doBasecase(tokens, length); 
     }
@@ -162,6 +165,10 @@ void westWorld(char * tokens[], int length)
             {
                 semiCounter++;
                 semicolonHandler(tokens, i);
+            }
+            else if(strcmp(tokens[i], "cd") == 0)
+            {
+                directoryHandler(tokens);
             }
             else if(strcmp(tokens[i], ">") == 0 || strcmp(tokens[i],"1>") == 0)
             {
@@ -198,6 +205,51 @@ void westWorld(char * tokens[], int length)
 }
 /************************************END WESTWORLD********************************
 *********************************************************************************/
+void directoryHandler(char * tokens[]){
+    char * buffer = malloc(100);
+    buffer = getcwd(buffer, 100);
+    int n = strlen(buffer);
+    char * newEnv = buffer;
+    if (strcmp(tokens[1], "..") == 0)
+    {
+        while (newEnv[n] != '/')
+        {
+            newEnv[n] = '\0';
+            n--;
+        }
+    }
+    else if (tokens[1][0] == '/')
+    {
+        newEnv = tokens[1];
+    }
+    else if (tokens[1][0] == '.' && tokens[1][1] == '/')
+    {
+        int i = 2;
+        char *partial = tokens[1] + 1;
+        strcat(newEnv, partial);
+    }
+    else
+    {
+        strcat(newEnv, "/");
+        strcat(newEnv, tokens[1]);
+    }
+    if ((setenv("PWD", newEnv, 1)) < 0)
+    {
+        perror("");
+    }
+    if ((chdir(newEnv)) < 0)
+    {
+        perror("");
+    }
+    return;
+              
+}
+
+
+
+
+
+
 
 void lovingDemPipes(char * tokens[], int i)
 {
@@ -761,9 +813,9 @@ void clear()
 /* sig_handler() -- signal handler for SIGINT */
 void sig_handler(int signo)
 {
+    fprintf(stdout,"\n%sGuess that program was not fun\n",RED);
     if (signo == SIGINT && parent != getpid())
     {
-        fprintf(stdout, "Received a SIGINT signal... exiting.");
         exit(0);
     }
 }
@@ -773,7 +825,7 @@ void sig_handler2(int signo)
 {
     if (signo == SIGTSTP)
     {
-        fprintf(stdout, "Received a SIGTSTP signal... exiting.");
+        fprintf(stdout, "\n%sThanks for using the shell have a shitty day\n",RED);
         exit(0);
     }
 }
