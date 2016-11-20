@@ -11,12 +11,12 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+/* Macro Definitions */
 #define MAXLINE 4096
 #define MAXPIPES 10
-void sig_handler(int signo);
-void sig_handler2(int signo);
+#define MAX_ARGS 10
 
-#define RED "\x1B[31m"
+#define RED "\x1B[31m" // Colors
 #define GRN "\x1B[32m"
 #define YEL "\x1B[33m"
 #define BLU "\x1B[34m"
@@ -24,50 +24,69 @@ void sig_handler2(int signo);
 #define CYN "\x1B[36m"
 #define WHT "\x1B[37m"
 
-//FUNCTION DEFINITIONS:
-void clearArray(char *array[]);
-void doRest(char *tokens[], int length);
-void pipeCreator(char *tokens[], int length);
-void pipeHandler(char *tokens[], int length);
+/* FUNCTION DEFINITIONS */
+void pipeCreator(char *tokens[]); //Creates the pipes for later
+void doBasecase(char * tokens[], int length); //regular execs
+void westWorld(char * tokens[], int length); //Does pretty much everything
+void semicolonHandler(char * tokens[], int length);
+void getArgsAfter(char *dest[], char * tokens[], int i);
+void getArgsBefore(char *dest[], char * tokens[], int i);
+void redirStdout(char * tokens[], int i); // Redirects stdout to outputfile
+void redirStderr(char * tokens[], int i); //Redicted stderr to outputfile
+void redirBoth(char * tokens[], int i); //Redicted stderr to outputfile
+void runinBackground(char * tokens[], int i); //Redicted stderr to outputfile
+void lovingDemPipes(char * tokens[], int i);
+
+void sig_handler(int signo);
+void sig_handler2(int signo);
+void clear();
+
+/* GLOBAL VARIABLES */
+int stdoutCopy;;
+int stdinCopy;
 int pipes[MAXPIPES][2];
+int semiTotal = 0;
+int semiCounter = 0;
+
+int pipeTotal = 0;
+int pipeIndexer = 0;
 pid_t pid;
-int numpipeflag;
 
-//sudo code --user-data-dir="~/.vscode-root"
-void clear()
+/* MAIN ROUTINE */
+int main()
 {
-    printf("\033[H\033[J");
-}
-
-int main(void)
-{
-    char *buffer = ""; //Potentially malloc
-    int status;
+    dup2(STDOUT_FILENO, stdoutCopy);
+    dup2(STDOUT_FILENO, stdoutCopy);
     clear();
-    fprintf(stdout, "Welcome to the MyShell Process\n");
-    fprintf(stdout, "Enter exit to quit!\n");
-
+    fprintf(stdout, "%sWelcome to the MyShell Processd\n", BLU);
+    fprintf(stdout, "%sEnter exit ot quit!\n", BLU);
+    /* Setup signal handlers */
     if (signal(SIGINT, sig_handler) == SIG_ERR)
     {
-        perror("There was a signal ERROR\n");
+        perror("Signal Error:");
         exit(-1);
     }
     if (signal(SIGTSTP, sig_handler2) == SIG_ERR)
     {
-        perror("Error killing the process");
+        perror("Error killing via signal:");
     }
-    //bgin commandLine Parsing
-    while (strcmp(buffer, "exit") != 0)
+    /*  End Signal handling  */
+
+    /* BEGIN COMMAND LINE PARSING */
+    char *line = "";
+    while (strcmp(line, "exit") != 0)
     {
-        buffer = (char *)NULL;
+        line = (char *)NULL;
         fprintf(stdout, "%sm%sy%ss%sh%se%sl%sl%s %s> ", RED, GRN, YEL, BLU, MAG, CYN, RED, GRN, YEL);
-        buffer = readline("");
-        if (strcmp(buffer, "exit") == 0)
+        line = readline("");
+        //Exit case:
+        if (strcmp(line, "exit") == 0)
         {
-            fprintf(stdout, "WELL GO FUCK YOURSELF\n");
+            fprintf(stdout, "Thanks for using our Shell! Its better than the other ones...");
             break;
         }
-        char *string = strtok(buffer, " ");
+        //Tokenize the input string
+        char *string = strtok(line, " ");
         char *tokens[20];
         int i = 0;
         while (string != NULL)
@@ -75,749 +94,690 @@ int main(void)
             tokens[i++] = string;
             string = strtok(NULL, " ");
         }
-        pipeCreator(tokens, i);
-        if (numpipeflag == 0)
+        int length = i; //For keeping track of length of array
+        //Count semicolons and pipes
+        int j;
+        for (j = 0; j < length; j++)
         {
-            doRest(tokens, i);
+            if (strcmp(tokens[j], "|") == 0)
+            {
+                pipeTotal++;
+            }
+            else if (strcmp(tokens[j], ";") == 0)
+            {
+                semiTotal++;
+            }
         }
-        else
+        //Create pipes if there are pipes to create
+        if (pipeTotal > 0)
         {
-            pipeHandler(tokens, i);
+            pipeCreator(tokens);
+        }
+        //Begin character checking routine, calling corresponding functions to handle each control character
+
+        westWorld(tokens, length);
+        memset(tokens, (char*)NULL,8*length);
+        pipeIndexer = 0;
+        } //End main for loop
+
+    } //End main while loop
+
+
+/*****************************************************************************************
+******************************************************************************************
+****************************HELPER FUNCTIONS**********************************************
+******************************************************************************************
+*****************************************************************************************/
+int isBasecase(char * tokens[], int length)
+{
+    int j;
+    for(j = 0; j < length; j++)
+    {
+        if (strcmp(tokens[j], "|") == 0 || strcmp(tokens[j], ">") == 0 || strcmp(tokens[j], "<") == 0 || strcmp(tokens[j], "1>") == 0 || strcmp(tokens[j], "2>") == 0 || strcmp(tokens[j], "&>") == 0 || strcmp(tokens[j], "&") == 0 || strcmp(tokens[j], ";") == 0)
+        {
+            return 0;
         }
     }
+    return 1;
 }
 
-void doRest(char *tokens[], int length)
+//THE MEAT AND POTATOS
+void westWorld(char * tokens[], int length)
 {
-    int basecase = 1;
-    if (length == 1)
+    semiCounter = 0;
+    if(isBasecase(tokens, length)) // We do not have any control characters. (WORKING)
     {
-        if (strcmp(tokens[0], "cd") == 0)
-        {
-            return;
-        }
-
-        if ((pid = fork()) < 0)
-        {
-            perror("Fork Error");
-        }
-
-        else if (pid == 0)
-        {
-            if ((execlp(tokens[0], tokens[0], (char *)NULL)) < 0)
-            {
-                perror("EXEC ERROR FOR BASECASE");
-            }
-            exit(1);
-        }
-        else
-        {
-            int statflag;
-            if ((pid = waitpid(pid, &statflag, 0)) < 0)
-            {
-                perror("Could not wait on the pid child");
-            }
-        }
+        doBasecase(tokens, length); 
     }
-    /*
-    FOR A NORMAL COMMAND without basecase.
-*/
-    else if (length > 1)
+    else
     {
-        int j = 0;
-        for (j; j < length; j++)
+        int i;
+        for(i = 0; i < length; i++) //This is for other cases
         {
-            if (strcmp(tokens[j], "|") == 0 || strcmp(tokens[j], ">") == 0 || strcmp(tokens[j], "<") == 0 ||
-                strcmp(tokens[j], "1>") == 0 || strcmp(tokens[j], "2>") == 0 || strcmp(tokens[j], "&>") == 0 ||
-                strcmp(tokens[j], "&") == 0 || strcmp(tokens[j], ";") == 0)
+            if(strcmp(tokens[i], ";") == 0)
             {
-                basecase = 0;
+                semiCounter++;
+                semicolonHandler(tokens, i);
+            }
+            else if(strcmp(tokens[i], ">") == 0 || strcmp(tokens[i],"1>") == 0)
+            {
+                redirStdout(tokens, i);   
+            }
+            else if(strcmp(tokens[i], "2>") == 0)
+            {
+                redirStderr(tokens, i);
+            }
+            else if(strcmp(tokens[i], "<") == 0)
+            {
+                redirStdin(tokens, i);
+            }
+            else if(strcmp(tokens[i], "&>") == 0)
+            {
+                redirBoth(tokens, i);
+            }
+            else if(strcmp(tokens[i], "&") == 0)
+            {
+                runinBackground(tokens, i);
+            }
+            else if(strcmp(tokens[i], "|") == 0)
+            {
+                lovingDemPipes(tokens, i);
+                pipeIndexer++;
+            }
+            else //The case that it is just a regular char
+            {
+                continue; 
             }
         }
-        //This is a single command with Arguments
-        if (basecase == 1)
+
+    }
+}
+/************************************END WESTWORLD********************************
+*********************************************************************************/
+
+void lovingDemPipes(char * tokens[], int i)
+{
+    pid_t child;
+    if((child = fork()) < 0)
+    {
+        perror("");
+    } 
+    else if(child == 0)
+    {
+        if(pipeIndexer == 0)
         {
-            tokens[length] = (char *)NULL;
-            pid_t child;
-
-            if (strcmp(tokens[0], "cd") == 0) //BEGIN "cd" case
+            dup2( pipes[pipeIndexer][1], STDOUT_FILENO); //Direct standard out to write end of pipe.
+            close(pipes[pipeIndexer][0]); //close the read end
+            char * argv[MAX_ARGS];
+            memset(argv, (char *)NULL, 8*MAX_ARGS);
+            getArgsBefore(argv, tokens, i);
+            if (argv[0] == 0)
             {
-                char *buffer = (char *)malloc(100);
-                buffer = getcwd(buffer, 100);
-
-                char *newEnv = buffer;
-
-                int n = strlen(buffer) - 1;
-
-                if (strcmp(tokens[1], "..") == 0)
+                if ((execlp(tokens[i - 1], tokens[i-1], (char*)NULL)) < 0)
                 {
-                    while (newEnv[n] != '/')
-                    {
-                        newEnv[n] = '\0';
-                        n--;
-                    }
+                    perror("Exec Error");
+                    exit(1);
                 }
-
-                else if (tokens[1][0] == '/')
-                {
-                    newEnv = tokens[1];
-                }
-
-                else if (tokens[1][0] == '.' && tokens[1][1] == '/')
-                {
-                    int i = 2;
-                    char *partial = tokens[1] + 1;
-
-                    strcat(newEnv, partial);
-                }
-
-                else
-                {
-                    strcat(newEnv, "/");
-                    strcat(newEnv, tokens[1]);
-                }
-
-                if ((setenv("PWD", newEnv, 1)) < 0)
-                {
-                    perror("");
-                }
-
-                if ((chdir(newEnv)) < 0)
-                {
-                    perror("");
-                }
-                return;
-            } //END "cd" case
-
-            if ((child = fork()) < 0)
-            {
-                perror("fork error in the basecase");
-            }
-            else if (child == 0)
-            {
-                if ((execvp(tokens[0], tokens)) < 0)
-                {
-                    perror("");
-                }
-                exit(1);
             }
             else
             {
-                int statflag;
-                if ((child = waitpid(child, &statflag, 0)) < 0)
+                if((execvp(argv[0], argv)) < 0)
                 {
-                    perror("Error waiting on the child in the basecase");
+                    perror("Exec Error");
+                    exit(1);
                 }
             }
-        }
-        //end basecase
 
-        //Start the regular expressions.
+        }
         else
         {
-
-            int argPtr;
-            int semicolon_counter = 0;
-            for (argPtr = 0; argPtr < length; argPtr++)
-            {
-                if (strcmp(tokens[argPtr], "cd") == 0) //BEGIN "cd" case
-                {
-                    fprintf(stdout, "HIT IT\n");
-                    char *value = getenv("PATH");
-                    fprintf(stdout, "Path: %s", value);
-                    fflush(stdout);
-                } //END "cd" case
-
-                if (strcmp(tokens[argPtr], ";") == 0)
-                {
-                    semicolon_counter++;
-                    pid_t child2;
-
-                    if ((child2 = fork()) < 0)
-                    {
-                        perror("Fork error in Child2");
-                    }
-                    if (child2 == 0 && semicolon_counter < 2) // in the child
-                    {
-                        int argsBefore = 0;
-                        int n = argPtr - 1;
-                        while (n > -1 && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
-                               strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
-                               strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
-                        {
-                            argsBefore++;
-                            n--;
-                        }
-                        //Counts the number of arguments before
-
-                        if (argsBefore == 1) //Case that we only have a single cmd and no arguments.
-                        {
-                            if ((execlp(tokens[argPtr - 1], tokens[argPtr - 1], (char *)NULL)) < 0)
-                            {
-                                perror("Exex error in the single cmd \n");
-                            }
-                            exit(1);
-                        }
-                        else // The case of the fact that we have a cmd with arguments.
-                        {
-                            char *argv[argsBefore + 1];
-                            for (n = 0; n <= argsBefore; n++)
-                            {
-                                argv[n] = tokens[argPtr - argsBefore--];
-                            }
-                            argv[n] = (char *)NULL;
-                            if ((execvp(argv[0], argv)) < 0)
-                            {
-                                perror("Error in multiple argument exec");
-                            }
-                            exit(1);
-                        }
-                    }
-                    else if (child2 == 0)
-                    {
-                        exit(1);
-                    }
-                    //What to do if we have more than one semicolon
-                    else if (child2 > 0)
-                    {
-                        if (semicolon_counter)
-                        {
-                            int statflag;
-                            if ((child2 = waitpid(child2, &statflag, 0)) < 0)
-                            {
-                                perror("Could not wait for the child in the parent");
-                            }
-                        }
-                        pid_t child3;
-                        if ((child3 = fork()) < 0)
-                        {
-                            perror("Forking error in the third child\n");
-                        }
-                        if (child3 == 0)
-                        {
-                            int argsAfter = 0;
-                            int n = argPtr + 1;
-                            while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
-                                   strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
-                                   strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
-                            {
-                                argsAfter++;
-                                n++;
-                            }
-                            fflush(stdout);
-                            if (argsAfter == 1)
-                            {
-                                if ((execlp(tokens[argPtr + 1], tokens[argPtr + 1], (char *)NULL)) < 0)
-                                {
-                                    perror("Error Execing the Second SingleArg\n");
-                                }
-                                fflush(stdout);
-                                exit(10);
-                            }
-                            if (argsAfter > 1)
-                            {
-                                char *argv[argsAfter + 1];
-                                for (n = 0; n < argsAfter; n++)
-                                {
-                                    argv[n] = tokens[argPtr + n + 1];
-                                }
-                                argv[n] = (char *)NULL; //We Should Check this out.
-                                if ((execvp(argv[0], argv)) < 0)
-                                {
-                                    perror("We had an exec error in the multiarg cse\n");
-                                }
-                                exit(0);
-                            }
-                        }
-                        else if (child3 != 0)
-                        {
-                            int statflag;
-                            if ((child3 = waitpid(child3, &statflag, 0)) < 0)
-                            {
-                                perror("We had an error waiting on the third child\n");
-                            }
-                        }
-                        //NOW WE ARE BACK IN THE PARENT
-                    }
-
-                } //End the semicolon case
-                if (strcmp(tokens[argPtr], ">") == 0 || strcmp(tokens[argPtr], "1>") == 0)
-                {
-                    pid_t child;
-                    if ((child = fork()) < 0)
-                    {
-                        perror("Could not fork for redirection char\n");
-                    }
-                    if (child == 0)
-                    {
-                        int fd = 0;
-                        fd = open(tokens[argPtr + 1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                        dup2(fd, 1);
-
-                        int argsBefore = 0;
-                        int n = argPtr - 1;
-
-                        while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
-                               strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
-                               strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
-                        {
-                            argsBefore++;
-                            n--;
-                        }
-
-                        if (argsBefore == 1)
-                        {
-                            if ((execlp(tokens[argPtr - 1], tokens[argPtr - 1], (char *)NULL)) < 0)
-                            {
-                                perror("EXEC ERROR");
-                            }
-                            exit(1);
-                        }
-
-                        else
-                        {
-                            char *argv[argsBefore + 1];
-                            for (n = 0; n <= argsBefore; n++)
-                            {
-                                argv[n] = tokens[argPtr - argsBefore];
-                                argsBefore--;
-                            }
-                            argv[n] = (char *)NULL;
-                            if ((execvp(argv[0], argv)) < 0)
-                            {
-                                perror("EXECVP ERROR IN < CASE");
-                            }
-                            exit(1);
-                        }
-                    }
-                    else
-                    {
-                        int statflag;
-                        if ((child = waitpid(child, &statflag, 0)) < 0)
-                        {
-                            perror("error waiting on the child\n");
-                        }
-                    }
-
-                } //END the direction case;
-
-                // BEGIN "<" direction case;
-                if (strcmp(tokens[argPtr], "<") == 0)
-                {
-                    pid_t child;
-                    if ((child = fork()) < 0)
-                    {
-                        perror("FORKING ERROR in '<' case");
-                    }
-
-                    else if (child == 0)
-                    {
-                        int fd = 0;
-                        fd = open(tokens[argPtr + 1], O_RDONLY, S_IRUSR | S_IWUSR);
-                        dup2(fd, 0);
-
-                        int argsBefore = 0;
-                        int n = argPtr - 1;
-
-                        while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
-                               strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
-                               strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
-                        {
-                            argsBefore++;
-                            n--;
-                        }
-
-                        if (argsBefore == 1)
-                        {
-                            if ((execlp(tokens[argPtr - 1], tokens[argPtr - 1], (char *)NULL)) < 0)
-                            {
-                                perror("EXEC ERROR with single command in '<' case");
-                            }
-
-                            exit(1);
-                        }
-
-                        else
-                        {
-                            char *argv[argsBefore + 1];
-                            for (n = 0; n <= argsBefore; n++)
-                            {
-                                argv[n] = tokens[argPtr - argsBefore];
-                                argsBefore--;
-                            }
-                            argv[n] = (char *)NULL;
-                            if ((execvp(argv[0], argv)) < 0)
-                            {
-                                perror("EXECVP ERROR IN < CASE");
-                            }
-                            exit(1);
-                        }
-                    }
-
-                    else
-                    {
-                        int statflag;
-                        if ((child = waitpid(child, &statflag, 0)) < 0)
-                        {
-                            perror("ERROR waiting on child in '<' case");
-                        }
-                    }
-
-                } //END "<" direction case;
-
-                if (strcmp(tokens[argPtr], "2>") == 0) //BEGIN "2>" direction case
-                {
-                    pid_t child;
-                    if ((child = fork()) < 0)
-                    {
-                        perror("FORK ERROR in '2>' case");
-                    }
-
-                    else if (child == 0)
-                    {
-                        int fd = 0;
-                        fd = open(tokens[argPtr + 1], O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                        dup2(fd, STDERR_FILENO);
-
-                        int argsBefore = 0;
-                        int n = argPtr - 1;
-
-                        while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
-                               strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
-                               strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
-                        {
-                            argsBefore++;
-                            n--;
-                        }
-
-                        if (argsBefore == 1)
-                        {
-                            if ((execlp(tokens[argPtr - 1], tokens[argPtr - 1], (char *)NULL)) < 0)
-                            {
-                                perror("EXEC ERROR with single command in '2>' case");
-                            }
-
-                            exit(1);
-                        }
-
-                        else
-                        {
-                            char *argv[argsBefore + 1];
-                            for (n = 0; n <= argsBefore; n++)
-                            {
-                                argv[n] = tokens[argPtr - argsBefore];
-                                argsBefore--;
-                            }
-                            argv[n] = (char *)NULL;
-                            if ((execvp(argv[0], argv)) < 0)
-                            {
-                                perror("EXECVP ERROR IN < CASE");
-                            }
-                            exit(1);
-                        }
-                    }
-                    else
-                    {
-                        int statflag;
-                        if ((child = waitpid(child, &statflag, 0)) < 0)
-                        {
-                            perror("ERROR waiting on child in '2>' case");
-                        }
-                    }
-
-                } //END "2>" direction case
-
-                if (strcmp(tokens[argPtr], "&") == 0) //BEGIN "&" case
-                {
-                    pid_t child;
-                    if ((child = fork()) < 0)
-                    {
-                        perror("FORK ERROR in '&' case");
-                    }
-
-                    else if (child == 0)
-                    {
-                        int argsBefore = 0;
-                        int n = argPtr - 1;
-
-                        while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
-                               strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 &&
-                               strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
-                        {
-                            argsBefore++;
-                            n--;
-                        }
-
-                        if (argsBefore == 1)
-                        {
-                            sleep(2);
-                            if ((execlp(tokens[argPtr - 1], tokens[argPtr - 1], (char *)NULL)) < 0)
-                            {
-                                perror("EXEC ERROR with single command in '2>' case");
-                            }
-
-                            exit(1);
-                        }
-
-                        else
-                        {
-                            char *argv[argsBefore + 1];
-                            for (n = 0; n <= argsBefore; n++)
-                            {
-                                argv[n] = tokens[argPtr - argsBefore];
-                                argsBefore--;
-                            }
-                            argv[n] = (char *)NULL;
-                            sleep(2);
-                            if ((execvp(argv[0], argv)) < 0)
-                            {
-                                perror("EXECVP ERROR IN < CASE");
-                            }
-                            exit(1);
-                        }
-                    }
-
-                    else
-                    {
-                        fprintf(stdout, "Executing process number [%d].\n", child);
-                        fflush(stdout);
-                        sleep(3);
-                    }
-
-                } //END "&" case
-            }
-        }
-
-        //End the case of anything but single arg.
-    }
-
-    //End the do Rest();
-    else if (length > 1)
-    {
-        int statflag;
-        if ((pid = waitpid(pid, &statflag, 0)) < 0)
-        {
-            perror("ERROR WAITING ON THE MAIN PROCESS\n");
-        }
-    }
-}
-
-/*
-
-
-    THIS IS THE LINE DO NOT CROSS IT
-
-
-
-*/
-
-//Makes the filedescriptor array for the global variable
-void pipeCreator(char *tokens[], int length)
-{
-    int numPipes = 0;
-    int i = 0;
-    for (i; i < length; i++)
-    {
-        if (tokens[i][0] == '|')
-        {
-            numPipes++;
-        }
-    }
-    for (i = 0; i < numPipes; i++)
-    {
-        if ((pipe(pipes[i])) < 0)
-        {
-            perror("PIPE CREATION ERROR");
-        }
-    }
-    numpipeflag = numPipes;
-}
-int getArgs(char *dest[], char *tokens[])
-{
-    int i = 0;
-    while (tokens[i][0] != '|' && tokens[i] != NULL)
-    {
-        dest[i] = tokens[i];
-        i++;
-    }
-    dest[i] = (char *)NULL;
-    return i;
-}
-
-//int pipes[MAXPIPES][2];
-void pipeHandler(char *tokens[], int length)
-{
-    tokens[length] = (char*) NULL; //May not need this
-    fprintf(stdout, "we made it to the pipehandler\n");
-    char *argv[10];
-    int argNum = getArgs(argv, tokens);
-    pid_t pipeChild;
-    int i = 1; //used to count the amount of pipes weve handled
-    if((pid = fork()) < 0)
-    {
-        perror("");
-    }
-    if(pid  == 0) //overall process
-    {
-    if ((pipeChild = fork()) < 0)
-    {
-        perror("");
-    }
-    if (pipeChild == 0)
-    {
-        dup2(pipes[0][1], STDOUT_FILENO);
-        close(pipes[0][0]);
-        if (argNum == 1)
-        {
-            if ((execlp(argv[0], argv[0], (char *)NULL)) < 0)
-            {
-                fprintf(stderr, "Fork error in the pipes\n");
-            }
             exit(1);
         }
+
+    }
+    else if(child > 0)
+    {
+        pid_t childTwo;
+        close(pipes[pipeIndexer][1]);
+        if((child = waitpid(child, NULL, 0)) < 0)
+        {
+            perror("Error waiting on the child");
+        }
+        else if(pipeIndexer == pipeTotal - 1)
+        {
+                if((childTwo = fork()) < 0)
+                {
+                        perror("");
+                } 
+                else if(childTwo == 0)
+                {
+                    dup2(pipes[pipeIndexer][0], STDIN_FILENO);
+                    close(pipes[pipeIndexer][1]);
+                    char * argv[MAX_ARGS];
+                    memset(argv, (char *)NULL, 8*MAX_ARGS);
+                    getArgsAfter(argv, tokens, i);
+                    if (argv[0] == 0)
+                    {
+                        if ((execlp(tokens[i + 1], tokens[i + 1], (char*)NULL)) < 0)
+                        {
+                            perror("Exec Error");
+                            exit(1);
+                        }
+                    }
+                    else
+                    {
+                        if((execvp(argv[0], argv)) < 0)
+                        {
+                            perror("Exec Error");
+                            exit(1);
+                        }
+                     }
+                }
+                else //in the parent again.
+                {
+                    close(pipes[pipeIndexer][1]);
+                    if((childTwo = waitpid(childTwo, NULL, 0)) < 0)
+                    {
+                        perror("Error waiting on the child");
+                    }
+
+                }  
+        }
+        else //The case of multiple pipes
+        {
+            if((child = fork()) < 0)
+                {
+                    perror("");
+                } 
+                else if(child == 0)
+                {
+                    dup2(pipes[pipeIndexer][0], STDIN_FILENO); //put readend into STDIN
+                    dup2(STDOUT_FILENO ,pipes[pipeIndexer+1][1]);
+                    close(pipes[pipeIndexer+1][0]);
+                    // close(pipes[pipeIndexer-1][1]);
+                    char * argv[MAX_ARGS];
+                    memset(argv, (char *)NULL, 8*MAX_ARGS);
+                    getArgsAfter(argv, tokens, i);
+                    if (argv[0] == 0)
+                    {
+                        if ((execlp(tokens[i + 1], tokens[i + 1], (char*)NULL)) < 0)
+                        {
+                            perror("Exec Error");
+                            exit(1);
+                        }
+                    }
+                    else
+                    {
+                        if((execvp(argv[0], argv)) < 0)
+                        {
+                            perror("Exec Error");
+                            exit(1);
+                        }
+                     }
+                }
+                else // parent
+                {
+                    close(pipes[pipeIndexer][1]);
+                    if((child = waitpid(child, NULL, 0)) < 0)
+                    {
+                        perror("Error waiting");
+                    }
+                }
+
+        }
+    }
+
+
+}
+
+
+
+void runinBackground(char * tokens[], int i)
+{
+    pid_t child;
+    if((child = fork()) < 0)
+    {
+        perror("");
+    }
+    else if(child == 0)
+    {
+        char * argv[MAX_ARGS];
+        memset(argv, (char *)NULL, 8*MAX_ARGS);
+        getArgsBefore(argv, tokens, i);
+
+        if (argv[0] == 0)
+        {
+            sleep(1);
+            if ((execlp(tokens[i - 1], tokens[i-1], (char*)NULL)) < 0)
+            {
+                perror("Exec Error");
+            }
+        }
+
+        else
+        {
+            sleep(1);
+            if((execvp(argv[0], argv)) < 0)
+            {
+                perror("Exec Error");
+            }
+        }
+
+    }
+
+    else
+    {
+        fprintf(stdout, "Executing process number [%d] -- %s.\n", child, tokens[i-1]);
+        fflush(stdout);
+        sleep(2);
+    }
+}
+
+
+
+void redirBoth(char * tokens[], int i)
+{
+    pid_t child;
+    if ((child = fork()) < 0)
+    {
+        perror("Error Forking");
+    }
+
+    if (child == 0)
+    {
+        int fd;
+        fd = open(tokens[i+1], O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        if(fd < 0)
+        {
+            perror("");
+            exit(1);    
+        }
+        dup2(fd, 2);
+        dup2(fd, 1);
+        char * argv[MAX_ARGS];
+        memset(argv, (char *) NULL, 8*MAX_ARGS);
+        getArgsBefore(argv, tokens, i);
+        if(argv[0] == NULL)
+        {
+            if((execlp(tokens[i-1],tokens[i-1],(char*) NULL )) < 0)
+            {
+                perror("Exec error");
+                exit(1);
+            }
+        }
+        else
+        {
+            if((execvp(argv[0], argv)) < 0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+    }
+    else
+    {
+        if((child = waitpid(child, NULL, 0)) < 0)
+        {
+            perror("couldnt wait");
+        }
+    }
+
+}
+
+
+
+
+
+void redirStdin(char * tokens[], int i)
+{
+    pid_t child;
+    if ((child = fork()) < 0)
+    {
+        perror("Error Forking");
+    }
+
+    if (child == 0)
+    {
+        int fd;
+        fd = open(tokens[i+1], O_RDONLY, S_IRUSR | S_IWUSR);
+        if(fd < 0)
+        {
+            perror("");
+            exit(1);    
+        }
+        dup2(fd, 0);
+        char * argv[MAX_ARGS];
+        memset(argv, (char *) NULL, 8*MAX_ARGS);
+        getArgsBefore(argv, tokens, i);
+        if(argv[0] == NULL)
+        {
+            if((execlp(tokens[i-1],tokens[i-1],(char*) NULL )) < 0)
+            {
+                perror("Exec error");
+                exit(1);
+            }
+        }
+        else
+        {
+            if((execvp(argv[0], argv)) < 0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+    }
+    else
+    {
+        if((child = waitpid(child, NULL, 0)) < 0)
+        {
+            perror("couldnt wait");
+        }
+    }
+
+}
+
+
+
+void redirStderr(char * tokens[], int i)
+{
+    pid_t child;
+    if ((child = fork()) < 0)
+    {
+        perror("Error Forking");
+    }
+
+    if (child == 0)
+    {
+        int fd;
+        fd = open(tokens[i+1], O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        dup2(fd, 2);
+        char * argv[MAX_ARGS];
+        memset(argv, (char *) NULL, 8*MAX_ARGS);
+        getArgsBefore(argv, tokens, i);
+        if(argv[0] == NULL)
+        {
+            if((execlp(tokens[i-1],tokens[i-1],(char*) NULL )) < 0)
+            {
+                perror("Exec error");
+                exit(1);
+            }
+        }
+        else
+        {
+            if((execvp(argv[0], argv)) < 0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+    }
+    else
+    {
+        if((child = waitpid(child, NULL, 0)) < 0)
+        {
+            perror("couldnt wait");
+        }
+    }
+
+}
+
+
+void redirStdout(char * tokens[], int i)
+{
+    pid_t child;
+    if ((child = fork()) < 0)
+    {
+        perror("Error Forking");
+    }
+
+    if (child == 0)
+    {
+        int fd;
+        fd = open(tokens[i+1], O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+        dup2(fd, 1);
+        char * argv[MAX_ARGS];
+        memset(argv, (char *) NULL, 8*MAX_ARGS);
+        getArgsBefore(argv, tokens, i);
+        if(argv[0] == NULL)
+        {
+            if((execlp(tokens[i-1],tokens[i-1],(char*) NULL )) < 0)
+            {
+                perror("Exec error");
+                exit(1);
+            }
+        }
+        else
+        {
+            if((execvp(argv[0], argv)) < 0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+    }
+    else
+    {
+        if((child = waitpid(child, NULL, 0)) < 0)
+        {
+            perror("couldnt wait");
+        }
+    }
+
+}
+
+void semicolonHandler(char * tokens[], int i)
+{
+    pid_t child;
+    if((child = fork()) < 0)
+    {
+        perror("Fork Error");
+    }
+    else if(child == 0 && semiCounter == 1) //Child processes
+    {
+        char * argv[MAX_ARGS];
+        memset(argv, (char*)NULL, 8*MAX_ARGS);
+        argv[0] = NULL;
+        getArgsBefore(argv, tokens, i);
+        if (argv[0] == NULL)
+        {
+            if ((execlp(tokens[i-1], tokens[i-1], (char*)NULL)) < 0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+
         else
         {
             if ((execvp(argv[0], argv)) < 0)
             {
-                fprintf(stderr, "Error in the multiArg exec\n");
-            }
-            exit(1);
-        }
-    }
-    else if(pipeChild > 0) //in the parent
-    {
-        int statflag;
-        if ((pipeChild = waitpid(pipeChild, &statflag, 0)) < 0)
-        {
-            perror("");
-        }
-    }    
-    //Multiple pipe handling.
-    while (i < numpipeflag)
-    {
-        fprintf(stdout, "In the multipipe\n");
-        fflush(stdout);
-        tokens = tokens + argNum + 1; //this works tokens = tokens +  argNum + 1;
-        argNum = getArgs(argv, tokens);
-        pid_t theChild;
-        if ((theChild = fork()) < 0)
-        {
-            perror("");
-        }
-        if (theChild == 0)
-        {
-            dup2(pipes[i - 1][0], STDIN_FILENO); //could be an error.
-            dup2(pipes[i][1], STDOUT_FILENO);
-            close(pipes[i - 1] [1]);
-            close(pipes[i][0]);
-            if (argNum == 1)
-            {
-                if ((execlp(argv[0], argv[0], (char *)NULL)) < 0)
-                {
-                    fprintf(stderr, "Fork error in the pipes\n");
-                }
-                exit(1);
-            }
-            else
-            {
-                if ((execvp(argv[0], argv)) < 0)
-                {
-                    fprintf(stderr, "Error in the multiArg exec\n");
-                }
+                perror("Exec Error");
                 exit(1);
             }
         }
-        else
-        {
-            int statflag1;
-            if((theChild = waitpid(theChild, &statflag1, 0)) < 0)
-            {
-                perror("Error waiting on the child");
-            }
-            i++;
-        }
-        
     }
-    //End the multipipe handler
 
-    //handles the final argument.
-    tokens = tokens + argNum + 1; //this works tokens = tokens +  argNum + 1;
-    argNum = 0;
-    int k = 0;
-    int parentprocess = getpid();
-    while(tokens[k] != NULL)
+    else if(child == 0)
     {
-        argNum++;
-        k++;
+        exit(1);
     }
-    pid_t finalChild;
-    if((finalChild == fork()) < 0 )
+
+    else if (child > 0)
     {
-        perror("");
-    }
-    else if (finalChild == 0 && parentprocess != getpid()) //if we are in the child than we should execute again.
-    {
-        fprintf(stdout, "In the final child case with pid: %d\n", getpid());
-        dup2(pipes[0][0], STDIN_FILENO);
-        close(pipes[0][1]);
-        if (argNum == 1)
+        if ((child = waitpid(child, NULL, 0)) < 0)
         {
-            if ((execlp(tokens[0], tokens[0], (char *)NULL)) < 0)
-            {
-                fprintf(stdout, "Fork error in the pipes\n");
-            }
-            exit(1);
+            perror("Error waiting on child");
         }
+    }
+    pid_t child2;
+    if ((child2 = fork()) < 0)
+    {
+        perror("Forking Error");
+    }
+    else if (child2 == 0)
+    {
+        char * argp[MAX_ARGS];
+        memset(argp, (char*)NULL, 8*MAX_ARGS);
+
+        getArgsAfter(argp, tokens, i);
+        if (argp[0] == NULL)
+        {
+            if((execlp(tokens[i+1], tokens[i+1], (char*)NULL))<0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+
         else
         {
-            if ((execvp(tokens[0], tokens)) < 0)
+            if ((execvp(argp[0], argp)) < 0)
             {
-                fprintf(stdout, "Error in the multiArg exec\n");
+                perror("Exec Error");
+                exit(1);
             }
-            exit(1);
         }
     }
-    else //in the parent
-    { 
-            fprintf(stdout, "We are waiting on the child finalChild \n");
-            fflush(stdout);
-            int statflag2;
-            if ((finalChild = waitpid(finalChild, &statflag2, 0)) < 0)
-            {
-                perror("");
-            }
-            exit(1);
-    }
-    }
-    else if(pid > 0)
+
+    else if (child2 > 0)
     {
-        int statflag3;
-        if((pid = waitpid(pid, &statflag3, 0)) < 0)
+        if ((child2 = waitpid(child2, NULL, 0)) < 0)
         {
-            perror("");
+            perror("Error Waiting");
         }
     }
-    fprintf(stdout, "WE made it all the way through\n");
-    fflush(stdout);
-    numpipeflag = 0; //Resets the global variable.
-    
+}
+void getArgsAfter(char *dest[], char * tokens[], int i)
+{
+    int numAfter = 0;
+    int n = i + 1;
+
+    while (tokens[n] != NULL && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+            strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 && 
+            strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+            {
+                numAfter++;
+                n++;
+            }
+
+    if (numAfter == 1)
+    {
+
+        fflush(stdout);
+        return;
+    }
+
+    else
+    {
+        for (n = 0; n < numAfter; n++)
+        {
+            dest[n] = tokens[i + n + 1];
+        }
+        dest[numAfter] = (char*) NULL;
+    }
 }
 
+
+void getArgsBefore(char *dest[], char * tokens[], int i)
+{
+    int numBefore = 0;
+    int n = i - 1;
+
+    while (n >= 0 && strcmp(tokens[n], "|") != 0 && strcmp(tokens[n], ">") != 0 && strcmp(tokens[n], "<") != 0 &&
+            strcmp(tokens[n], "1>") != 0 && strcmp(tokens[n], "2>") != 0 && strcmp(tokens[n], "&>") != 0 && 
+            strcmp(tokens[n], "&") != 0 && strcmp(tokens[n], ";") != 0)
+            {
+                numBefore++;
+                n--;
+            }
+
+    if (numBefore == 1)
+    {
+        return; // If there is only one argument before, the dest array will be null as an indication that we have no args
+    }
+
+    else
+    {
+        for (n = 0; n <= numBefore; n++)
+        {
+            dest[n] = tokens[i - numBefore--];
+        }
+    }
+    
+    dest[n] = (char*)NULL;
+}
+
+
+void doBasecase(char * tokens[], int length) //BaseCase logic
+{
+    pid_t pid;
+    if((pid = fork()) < 0)
+    {
+        perror("Error in the basecase");
+    }
+    else if(pid == 0)
+    {
+        if (length == 1)
+        { 
+            if((execlp(tokens[0], tokens[0], (char*) NULL)) < 0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+        else
+        {
+            if((execvp(tokens[0], tokens)) < 0)
+            {
+                perror("Exec Error");
+                exit(1);
+            }
+        }
+    }
+    else
+    {
+        if((pid = waitpid(pid, NULL, 0)) < 0)
+        {
+            perror("");
+        }
+    }
+}
+
+/* clear() -- clears the screen. */
+void clear()
+{
+    printf("\033[H\033[J");
+}
+
+/* sig_handler() -- signal handler for SIGINT */
 void sig_handler(int signo)
 {
     if (signo == SIGINT && pid == 0)
     {
-        printf("Damn, this program must've sucked...\n");
+        fprintf(stdout, "Received a SIGINT signal... exiting.");
         exit(0);
     }
 }
 
+/* sig_handler2() -- signal handler for SIGTSTP */
 void sig_handler2(int signo)
 {
     if (signo == SIGTSTP)
     {
-        printf("\nThank you for using the shell\n");
-        printf("HAVE A SHITTY DAY\n");
+        fprintf(stdout, "Received a SIGTSTP signal... exiting.");
         exit(0);
+    }
+}
+
+/* pipeCreator() -- creates pipes and stores them in global array pipe */
+void pipeCreator(char *tokens[])
+{
+    int i;
+    for (i = 0; i < pipeTotal; i++)
+    {
+        if ((pipe(&pipes[i])) < 0)
+        {
+            perror("Error creating pipes:");
+        }
     }
 }
