@@ -13,11 +13,11 @@
 
 
 #define MAXLINE 200
-#define MAX_TOKS 20
-#define MAX_ROWS 20
-#define MAX_COLS 20
+#define MAX_TOKS 200
+#define MAX_ROWS 200
+#define MAX_COLS 200
 #define MAX_CHILDREN 200
-#define MAX_ARGS 25
+#define MAX_ARGS 250
 char *grabRow(int array[][MAX_COLS], int index, int size);
 char *grabCol(int array[][MAX_COLS], int index, int size);
 void reverse(char s[]);
@@ -102,8 +102,6 @@ int main(int argc, char *argv[])
     cols = 0;
   }
   MatBrow = rows+1;
-  fprintf(stderr,"The matrices at dimensions: %d X %d and %d X %d\n", MatArow, MatAcol,MatBrow,MatBcol);
-  fflush(stderr);
   //creat matrix C
   //printf("The answer to this multiplication will have dimensions: %d X %d\n", MatArow, MatBcol);
   

@@ -51,10 +51,12 @@ int semiCounter = 0;
 int pipeTotal = 0;
 int pipeIndexer = 0;
 pid_t pid;
+pid_t parent;
 
 /* MAIN ROUTINE */
 int main()
 {
+    parent = getpid();
     dup2(STDOUT_FILENO, stdoutCopy);
     dup2(STDOUT_FILENO, stdoutCopy);
     clear();
@@ -119,6 +121,8 @@ int main()
         memset(tokens, (char*)NULL,8*length);
         pipeIndexer = 0;
         } //End main for loop
+        dup2(stdinCopy,STDIN_FILENO);
+        dup2(stdoutCopy, STDOUT_FILENO);
 
     } //End main while loop
 
@@ -425,9 +429,6 @@ void redirBoth(char * tokens[], int i)
 }
 
 
-
-
-
 void redirStdin(char * tokens[], int i)
 {
     pid_t child;
@@ -524,16 +525,15 @@ void redirStderr(char * tokens[], int i)
 
 void redirStdout(char * tokens[], int i)
 {
+    int fd;
+    fd = open(tokens[i+1], O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     pid_t child;
     if ((child = fork()) < 0)
     {
         perror("Error Forking");
     }
-
     if (child == 0)
     {
-        int fd;
-        fd = open(tokens[i+1], O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
         dup2(fd, 1);
         char * argv[MAX_ARGS];
         memset(argv, (char *) NULL, 8*MAX_ARGS);
@@ -557,6 +557,7 @@ void redirStdout(char * tokens[], int i)
     }
     else
     {
+        close(fd);
         if((child = waitpid(child, NULL, 0)) < 0)
         {
             perror("couldnt wait");
@@ -752,7 +753,7 @@ void clear()
 /* sig_handler() -- signal handler for SIGINT */
 void sig_handler(int signo)
 {
-    if (signo == SIGINT && pid == 0)
+    if (signo == SIGINT && parent != getpid())
     {
         fprintf(stdout, "Received a SIGINT signal... exiting.");
         exit(0);
